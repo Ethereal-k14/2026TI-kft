@@ -16,7 +16,7 @@
 示例：
     uv run python tools/to_kmodel.py \
         --model weights/best.onnx \
-        --dataset datasets/coco128/images/train2017 \
+        --dataset datasets/calib \
         --input-size 320 320 \
         --output weights/best.kmodel
 
@@ -115,9 +115,13 @@ def compile_kmodel(args):
     compile_options.quant_type = args.quant_type          # uint8 / int8
     compile_options.input_type = "uint8" if mode == "norm255" else "float32"
     compile_options.output_type = "uint8"
-    compile_options.dump_ir = True
-    compile_options.dump_asm = True
-    compile_options.dump_dir = "dump"
+    if args.dump_dir:
+        compile_options.dump_ir = True
+        compile_options.dump_asm = True
+        compile_options.dump_dir = args.dump_dir
+    else:
+        compile_options.dump_ir = False
+        compile_options.dump_asm = False
 
     compiler = nncase.Compiler(compile_options)
 
@@ -168,6 +172,7 @@ def parse_args():
     p.add_argument("--calib-method", default="Kld",
                    choices=["Kld", "NoClip"],
                    help="Kld=KL散度(默认,推荐); NoClip")
+    p.add_argument("--dump-dir", default=None, help="IR/asm 调试信息保存目录（默认不生成）")
     return p.parse_args()
 
 

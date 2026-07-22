@@ -81,7 +81,7 @@ def main():
     # 4. AST compile
     section(4, total, "全部 Python 源码 AST 编译检查")
     py_files = [f for f in glob.glob("**/*.py", recursive=True)
-                if ".venv" not in f and "site-packages" not in f]
+                if not any(x in f.replace("\\", "/") for x in [".venv/", "site-packages/", "dump/", "build/", "dist/", "runs/"])]
     ast_ok = True
     for fp in sorted(py_files):
         try:
