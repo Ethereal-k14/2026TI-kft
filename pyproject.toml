@@ -1,0 +1,55 @@
+[project]
+name = "k230-project"
+version = "0.1.0"
+description = "K230 AI 视觉工程：YOLO11n 训练 / 推理 / 追踪 + nncase 转 kmodel 部署"
+# K230 官方 nncase 工具链仅支持 Python 3.6~3.10（官方 Docker 为 3.8），
+# 故工程统一锁定 3.10，保证训练侧与转换侧 Python 版本窗口一致。
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    # 训练 / 推理核心（Ultralytics 原生支持 YOLOv5/v8/11/26）
+    "ultralytics>=8.3.0",
+    "torch>=2.3.0",
+    "torchvision>=0.18.0",
+    # ONNX 导出与简化（转 kmodel 的前置步骤）
+    "onnx>=1.16.0",
+    "onnxsim>=0.4.36",
+    # onnxruntime 1.24+ 已不再提供 CPython 3.10 的 wheel，故上限锁到 <1.24
+    "onnxruntime>=1.18.0,<1.24",
+    # 图像 / 数据处理
+    "opencv-python-headless>=4.9.0",
+    "numpy>=1.26.0",
+    "pillow>=10.0.0",
+    "pandas>=2.0.0",
+    # 工具
+    "pyyaml>=6.0",
+    "matplotlib>=3.8.0",
+    "tqdm>=4.66.0",
+    "nncase>=2.11.0",
+    "nncase-kpu",
+    "onnxslim>=0.1.94",
+]
+
+# ---------------------------------------------------------------------------
+# uv 配置：本机已确认配备 NVIDIA GeForce RTX 4060 Laptop GPU + CUDA 12.1，
+# 故默认使用 PyTorch CUDA 索引（cu121）以发挥 GPU 训练性能。
+#
+# 「从 CUDA 开始降级」策略：
+#   1) 安装层 —— 默认拉取 CUDA 版 torch（cu121，匹配本机 CUDA 工具包 12.1）。
+#   2) 运行层 —— 所有训练/推理脚本均通过 torch.cuda.is_available() 自动选择
+#      device：有 GPU 用 "cuda:0"，否则自动降级到 "cpu"（见 scripts/_device.py）。
+#
+# 若需在无 GPU 的机器上复用本工程，把下方索引改回 cpu 并同步修改
+# torch/torchvision 来源即可（或见 docs/k230_deploy.md 的「退回 CPU」一节）。
+# ---------------------------------------------------------------------------
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu121" }]
+torchvision = [{ index = "pytorch-cu121" }]
+nncase-kpu = { path = "tools/nncase_kpu-2.11.0-py2.py3-none-win_amd64.whl" }

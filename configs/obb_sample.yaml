@@ -1,0 +1,9 @@
+# 旋转框检测 (Oriented Bounding Box, OBB) 示例配置
+path: ../datasets/obb_sample
+train: images/train
+val: images/val
+
+names:
+  0: pcb_component
+  1: text_line
+  2: vehicle_rotated

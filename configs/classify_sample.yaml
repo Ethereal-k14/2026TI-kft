@@ -1,0 +1,9 @@
+# 图像分类 (Classification) 示例配置
+# 也可以直接指定包含 train/val 文件夹的数据集根路径 (无需 yaml)
+path: ../datasets/classify_sample
+train: train
+val: val
+
+names:
+  0: cat
+  1: dog

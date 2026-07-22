@@ -1,0 +1,15 @@
+# COCO Segment (实例分割示例配置)
+path: ../datasets/coco_seg
+train: images/train
+val: images/val
+
+names:
+  0: person
+  1: bicycle
+  2: car
+  3: motorcycle
+  4: airplane
+  5: bus
+  6: train
+  7: truck
+  8: boat

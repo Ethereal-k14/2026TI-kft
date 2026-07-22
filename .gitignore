@@ -1,0 +1,60 @@
+# =============================================================================
+# K230 视觉 AI 开发工程 Git 忽略规则 (.gitignore)
+# =============================================================================
+
+# 1. Python 虚拟环境与包缓存
+.venv/
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 2. Python 字节码与缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 3. 编辑器 & IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 4. 模型训练过程产物与大型权重 (保留目录结构占位)
+runs/
+dump/
+deploy_pack*/
+*.pt
+*.onnx
+*.kmodel
+*.engine
+*.tensorrt
+!weights/.gitkeep
+!datasets/.gitkeep
+
+# 基础初始预训练权重例外（若希望在 Git 跟踪轻量级预训练权重 yolo11n.pt）
+!weights/yolo11n.pt
+
+# 5. 系统与日志临时文件
+*.log
+.DS_Store
+Thumbs.db
+Desktop.ini

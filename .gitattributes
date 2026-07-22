@@ -1,0 +1,23 @@
+# =============================================================================
+# K230 视觉 AI 开发工程 Git 属性配置 (.gitattributes)
+# 规范文本编码与换行符，防止 Windows CRLF 导致 Linux/K230 脚本无法执行
+# =============================================================================
+
+# 1. 默认所有文本文件使用 LF 换行符
+* text=auto eol=lf
+
+# 2. 脚本与 Python 源码强制使用 LF 换行符
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+
+# 3. 图像与模型二进制文件标注为 binary
+*.pt binary
+*.onnx binary
+*.kmodel binary
+*.jpg binary
+*.png binary
+*.bmp binary

@@ -1,0 +1,14 @@
+# COCO Keypoints (Pose 姿态估计示例配置)
+path: ../datasets/coco_pose
+train: images/train
+val: images/val
+
+# 关键点配置（人体 17 关键点）
+kpt_shape: [17, 3]  # [number of keypoints, number of dim (x, y, visible)]
+
+# 类别定义
+names:
+  0: person
+
+# 关键点翻转对（用于数据增强）
+flip_idx: [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]

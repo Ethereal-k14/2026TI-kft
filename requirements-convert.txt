@@ -1,0 +1,25 @@
+# nncase 转换辅助依赖（ONNX 处理 / 校准预处理）
+#
+# 安装方式（Windows 原生，推荐，零额外安装 .NET）：
+#   1) nncase 主程序已由本工程 uv 管理（uv sync 时已装好）；
+#      如需手动：uv pip install nncase==<与K230镜像一致版本>
+#   2) nncase-kpu 不在 PyPI，需到 nncase GitHub Release 手动下载同版本的
+#      nncase_kpu-<版本>-py2.py3-none-win_amd64.whl 离线安装：
+#        uv pip install nncase_kpu-<版本>-py2.py3-none-win_amd64.whl
+#   3) .NET：本机已装 .NET 8.0，tools/to_kmodel.py 会自动设置
+#      DOTNET_ROLL_FORWARD=Major 向前兼容运行 net7.0 的 nncase，无需装 7。
+#   4) 安装本文件其余辅助库：
+#        uv pip install -r requirements-convert.txt
+#
+# 备选：Linux / WSL2 / Docker（官方要求 dotnet-7）：
+#   sudo apt-get update && sudo apt-get install -y dotnet-sdk-7.0
+#   python -m pip install nncase==<版本> nncase-kpu==<版本>
+#   官方镜像：docker pull ghcr.io/kendryte/k230_sdk
+#
+# ⚠️ 版本铁律：nncase / nncase-kpu 版本必须与 K230 烧录镜像严格一致。
+
+onnx>=1.16.0
+onnxsim>=0.4.36
+onnxruntime>=1.18.0
+numpy>=1.26.0
+Pillow>=10.0.0
