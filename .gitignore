@@ -49,9 +49,7 @@ deploy_pack*/
 *.tensorrt
 !weights/.gitkeep
 !datasets/.gitkeep
-
-# 基础初始预训练权重例外（若希望在 Git 跟踪轻量级预训练权重 yolo11n.pt）
-!weights/yolo11n.pt
+!data/.gitkeep
 
 # 5. 系统与日志临时文件
 *.log

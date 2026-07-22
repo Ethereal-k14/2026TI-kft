@@ -19,7 +19,7 @@ def parse_args():
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--device", default="")
-    p.add_argument("--project", default="weights/seg", help="输出目录")
+    p.add_argument("--project", default="weights/segment", help="输出目录")
     p.add_argument("--name", default="yolo11n-seg")
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--patience", type=int, default=30)

@@ -23,7 +23,7 @@ def parse_args():
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--device", default="", help="cuda 编号 (如 0) 或 cpu")
-    p.add_argument("--out-dir", default="weights/obb", help="训练产出目录")
+    p.add_argument("--project", default="weights/obb", help="训练产出目录")
     p.add_argument("--name", default="yolo11n_obb", help="实验名称")
     return p.parse_args()
 
@@ -38,7 +38,7 @@ def main():
         imgsz=a.imgsz,
         batch=a.batch,
         workers=a.workers,
-        project=a.out_dir,
+        project=a.project,
         name=a.name,
         exist_ok=True,
     )
@@ -49,7 +49,7 @@ def main():
 
     results = model.train(**kwargs)
 
-    best_path = f"{a.out_dir}/{a.name}/weights/best.pt"
+    best_path = f"{a.project}/{a.name}/weights/best.pt"
     print("\n" + "=" * 50)
     print(f"🎉 训练完成！最佳模型参数已保存至: {best_path}")
     print(f"👉 下一步请运行 ONNX 导出命令:")
