@@ -66,17 +66,17 @@ compile_options.output_type = "float32"
 ```bash
 python tools/to_kmodel.py \
     --model weights/best_320.onnx \
-    --dataset datasets/calib_images \
+    --dataset datasets/calib \
     --input-size 320 320 \
     --quant-type uint8 \
     --preprocess norm255 \
-    --calib-method KLD \
+    --calib-method Kld \
     --output weights/best_320.kmodel
 ```
 
 #### 参数避坑说明：
 - `--preprocess norm255`：图像输入像素保持 `0~255`（`input_mean=0, input_std=255`）。在此模式下，K230 摄像头 HW/Sensor 传入的 uint8 图像数据可以直接交给 KPU 处理，**省略 CPU 前处理开销**。
-- `--calib-method KLD`：使用 KL 散度进行激活值量化阈值选择；若发现量化后精度有掉点，可切换为 `--calib-method ACIQ` 进行对比实测。
+- `--calib-method Kld`：使用 KL 散度进行激活值量化阈值选择；若发现量化后精度有掉点，可切换为 `--calib-method NoClip` 进行对比实测。注意 nncase 2.x 的量化方法仅支持 `Kld` 和 `NoClip` 两个字符串（大小写敏感）。
 - `--dataset`：提供 20 ~ 100 张覆盖真实部署场景（不同光照、背景）的校验图片。
 
 ---

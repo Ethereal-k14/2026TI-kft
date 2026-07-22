@@ -12,37 +12,46 @@
 k230-project/
 ├── pyproject.toml          # uv 工程定义（训练/推理依赖）
 ├── .python-version         # 固定 Python 3.10
+├── .gitignore              # Git 忽略规则（过滤 .venv / 权重 / 缓存）
+├── .gitattributes          # 换行符规范（强制 LF，防止 K230 板端脚本报错）
 ├── requirements-convert.txt# nncase 转换依赖（在 Linux/WSL2 中安装）
 ├── configs/                # 数据集 / 训练超参配置
-├── scripts/                # 5 大基础 AI 视觉任务训练 / 推理 / 导出脚本
+│   ├── coco128.yaml        # COCO128 检测示例（80 类）
+│   ├── coco_pose.yaml      # 姿态估计示例（17 关键点）
+│   ├── coco_seg.yaml       # 实例分割示例
+│   ├── classify_sample.yaml# 图像分类示例
+│   └── obb_sample.yaml     # 旋转框检测示例
+├── scripts/                # 5 大基础 AI 视觉任务训练 / 推理 / 导出
+│   ├── _device.py          # GPU/CPU 自动探测公共模块
 │   ├── train_detect.py     # YOLO11n 目标检测训练
 │   ├── train_classify.py   # YOLO11n-cls 图像分类训练
 │   ├── train_segment.py    # YOLO11n-seg 实例分割训练
-│   ├── train_pose.py       # YOLO11n-pose 关键点姿态估算训练
+│   ├── train_pose.py       # YOLO11n-pose 关键点姿态训练
 │   ├── train_obb.py        # YOLO11n-obb 旋转框检测训练
 │   ├── infer.py            # 图片 / 视频推理与可视化
 │   ├── track.py            # 多目标追踪（ByteTrack / BoT-SORT）
-│   └── export_onnx.py      # 导出 K230 规范 ONNX 模型
-├── templates/              # 板端运行代码例程模板
-│   ├── canmv_k230_demo.py  # CanMV (MicroPython) 上板推理运行代码模板
-│   ├── canmv_k230_web_streamer.py # Web 端口局域网实时画框视频流服务模板
-│   └── k230_cpp_runner.sh  # Linux C++ (yolo.elf) 命令行启动 Shell
-├── tools/
-│   ├── verify_env.py       # 一键全流程环境与开发链自动化校验工具
-│   ├── generate_deploy_pack.py # 一键构建 K230 板端部署包 (deploy_pack)
-│   └── to_kmodel.py        # nncase 将 ONNX 转 .kmodel（在 Linux/WSL2 运行）
-├── data/                   # 标签、类别名等 (含 coco_labels.txt)
-├── datasets/               # 你的训练 / 校验数据集
+│   └── export_onnx.py      # 导出 K230 规范 ONNX（含静态 Shape 校验）
+├── templates/              # K230 板端运行代码例程模板
+│   ├── canmv_k230_demo.py  # CanMV (MicroPython) 上板推理模板
+│   ├── canmv_k230_web_streamer.py # Web 端口局域网实时画框视频流
+│   └── k230_cpp_runner.sh  # Linux C++ (yolo.elf) 启动脚本
+├── tools/                  # 开发工具链
+│   ├── verify_env.py       # 一键全流程环境校验（训练→推理→导出）
+│   ├── audit_workspace.py  # 工作区 7 维完整性审计
+│   ├── generate_deploy_pack.py # 一键构建 K230 板端部署包
+│   └── to_kmodel.py        # nncase ONNX→.kmodel（Linux/WSL2 运行）
+├── data/                   # 标签文件（含 coco_labels.txt）
+├── datasets/               # 训练 / 校验数据集
 ├── weights/                # 训练产出的权重与导出模型
-└── docs/
-    ├── official_sources_and_config_basis.md # 全工程配置与参数官方权威依据对照表
-    ├── base_tasks_training_and_deploy.md # 5 大基础 AI 视觉任务自训练与 K230 部署指南
-    ├── dotnet_and_web_streaming.md # .NET 机制探索与 Web 端口实时画框图像串流指南
-    ├── canaan_k230_official_guide.md # 嘉楠 K230 官方资料深度整合与开发全景指南
-    ├── environment_verification.md # 开发环境规范与检验指南
-    ├── self_training.md    # 自训练方法（数据标注 → 训练 → 调优）
-    ├── k230_deploy.md      # K230 上板部署（nncase → kmodel → 烧录）
-    └── models_overview.md  # 官方最佳模型清单与选型建议
+└── docs/                   # 开发文档（8 篇）
+    ├── official_sources_and_config_basis.md
+    ├── base_tasks_training_and_deploy.md
+    ├── dotnet_and_web_streaming.md
+    ├── canaan_k230_official_guide.md
+    ├── environment_verification.md
+    ├── self_training.md
+    ├── k230_deploy.md
+    └── models_overview.md
 ```
 
 ## 2. 快速开始
@@ -54,9 +63,10 @@ cd /d/Destop/k230-project
 # 用 uv 创建虚拟环境并安装依赖（首次会自动下载 Python 3.10 与依赖）
 uv sync
 
-# 1. 验证环境（基础包验证 & 一键全流程功能全项检验）
+# 1. 验证环境（基础包验证 & 一键全流程功能全项检验 & 7 维工作区完整性审计）
 uv run python -c "import ultralytics, torch; print('ultralytics', ultralytics.__version__, '| torch', torch.__version__, '| cuda', torch.cuda.is_available())"
 uv run python tools/verify_env.py
+uv run python tools/audit_workspace.py
 
 # 用 COCO128 小数据集快速体验 YOLO11n 检测训练
 uv run python scripts/train_detect.py --data configs/coco128.yaml --epochs 10 --imgsz 640
@@ -65,7 +75,7 @@ uv run python scripts/train_detect.py --data configs/coco128.yaml --epochs 10 --
 uv run python scripts/infer.py --source test.jpg --weights weights/best.pt
 
 # 多目标追踪
-uv run python scripts/track.py --source video.mp4 --tracker botsort
+uv run python scripts/track.py --source video.mp4 --weights weights/best.pt --tracker botsort
 ```
 
 > **关于算力（从 CUDA 开始降级）**：本机已确认配备 **NVIDIA RTX 4060 Laptop GPU + CUDA 12.1**，

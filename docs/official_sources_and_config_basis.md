@@ -14,7 +14,7 @@
 | **nncase target** | `compile_options.target = "k230"` | `nncase` API 规范 | 必须显式声明 `k230` 以激活特定于嘉楠 KPU (NC200 架构) 的汇编生成器。 |
 | **量化数据类型** | `quant_type = "uint8"` | K230 KPU 硬件规范 | K230 KPU 矩阵乘法器原生针对 `uint8` / `int8` 8位定点优化，`uint8` 能发挥 4.0 TOPS 峰值算力。 |
 | **预处理参数** | `preprocess = "norm255"` | `nncase` 预处理模块设计规范 | 设定 `input_mean=[0,0,0], input_std=[255,255,255]` 后，归一化被编译进 `.kmodel` 硬件算子中，**省略 CPU 前处理耗时**。 |
-| **PTQ 校准算法** | `calib-method = "KLD"` / `"ACIQ"` | `nncase` PTQ 最佳实践 | KL 散度 (KLD) 能最大程度维持激活值直方图分布；ACIQ 在特定受限数据集中收敛更平滑。 |
+| **PTQ 校准算法** | `calib-method = "Kld"` / `"NoClip"` | `nncase` PTQ 最佳实践 | KL 散度 (Kld) 能最大程度维持激活值直方图分布；NoClip 保留完整动态范围。**注意 nncase 2.x 仅支持 `Kld` 和 `NoClip` 两个字符串（大小写敏感）。** |
 
 ---
 

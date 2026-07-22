@@ -44,7 +44,8 @@ docker run -it --rm -v "$PWD":/mnt -w /mnt ghcr.io/kendryte/k230_sdk /bin/bash
 # nncase 已由 uv 管理（uv sync 时已装好）。若需手动：
 uv pip install nncase==<与K230镜像一致版本>
 # nncase-kpu 不在 PyPI，去 GitHub Release 下载同版本 win_amd64 wheel 后离线安装：
-uv pip install nncase_kpu-<版本>-py2.py3-none-win_amd64.whl
+# 注：本工程已在 tools/ 下预置了 nncase_kpu-2.11.0 的 Windows wheel，可直接安装：
+uv pip install tools/nncase_kpu-2.11.0-py2.py3-none-win_amd64.whl
 # .NET：本机已装 8.0，经 to_kmodel.py 的 roll-forward 自动兼容，无需装 7
 ```
 
@@ -64,7 +65,7 @@ python -m pip install nncase==2.9.0 nncase-kpu==2.9.0
 ```bash
 uv run python tools/to_kmodel.py \
     --model weights/best.onnx \
-    --dataset datasets/coco128/images/train2017 \
+    --dataset datasets/calib \
     --input-size 320 320 \
     --output weights/best.kmodel
 ```
@@ -75,7 +76,7 @@ uv run python tools/to_kmodel.py \
 ```bash
 python tools/to_kmodel.py \
     --model best.onnx \
-    --dataset /path/to/calib_images \
+    --dataset datasets/calib \
     --input-size 320 320 \
     --output best.kmodel
 ```

@@ -44,6 +44,24 @@ uv run python tools/verify_env.py
 
 ---
 
+## 2.1 工作区完整性审计工具 (`audit_workspace.py`)
+
+除了管线功能检验，工程还内置了 7 维工作区完整性审计脚本 `tools/audit_workspace.py`，覆盖：
+
+1. Python 版本与虚拟环境
+2. 核心依赖包版本（13 个）
+3. 项目文件完整性（36 个关键文件）
+4. 全部源码 AST 编译检查
+5. Git 仓库与远程配置
+6. YAML 配置文件语法校验
+7. 核心库运行时 Smoke Test
+
+```bash
+uv run python tools/audit_workspace.py
+```
+
+---
+
 ## 3. K230 视觉 AI 快速开发 S.O.P
 
 标准开发与部署分为 **Windows 侧训练** 与 **Linux 侧模型转换/上板** 两大部分：
@@ -63,7 +81,8 @@ uv run python tools/verify_env.py
 
 ### Step 1: 训练模型 (Windows)
 ```bash
-uv run python scripts/train_detect.py --data configs/mydata.yaml --model yolo11n.pt --epochs 100 --imgsz 320
+# 使用工程自带的示例配置开始训练（自定义数据集请参考 configs/ 下的 YAML 模板新建配置文件）
+uv run python scripts/train_detect.py --data configs/coco128.yaml --model yolo11n.pt --epochs 100 --imgsz 320
 ```
 
 ### Step 2: 导出部署用 ONNX (Windows)
@@ -73,7 +92,7 @@ uv run python scripts/export_onnx.py --weights weights/detect/yolo11n/weights/be
 
 ### Step 3: 转为 K230 专用的 .kmodel (Linux / WSL2)
 ```bash
-python tools/to_kmodel.py --model weights/best_320.onnx --dataset /path/to/calib_images --input-size 320 320 --output best.kmodel
+python tools/to_kmodel.py --model weights/best_320.onnx --dataset datasets/calib --input-size 320 320 --output best.kmodel
 ```
 
 ---

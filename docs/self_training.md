@@ -10,6 +10,7 @@ YOLO11n（或 YOLOv8n）模型，并导出为 K230 可部署的 `.kmodel`。
 ```bash
 cd /d/Destop/k230-project
 uv sync                      # 创建 venv + 安装训练/推理依赖（默认 CUDA cu121）
+uv run python tools/audit_workspace.py  # 一键审计环境完整性
 ```
 
 **GPU 训练（本机默认）**：`pyproject.toml` 已默认从 PyTorch **cu121** 索引安装 CUDA 版
@@ -72,6 +73,12 @@ uv run python scripts/train_pose.py --data configs/mypose.yaml --model yolo11n-p
 
 # 实例分割
 uv run python scripts/train_segment.py --data configs/myseg.yaml --model yolo11n-seg.pt
+
+# 图像分类
+uv run python scripts/train_classify.py --data datasets/my_cls --model yolo11n-cls.pt --imgsz 224
+
+# 旋转框检测 (OBB)
+uv run python scripts/train_obb.py --data configs/obb_sample.yaml --model yolo11n-obb.pt
 ```
 
 ### 输入尺寸怎么选？
@@ -126,4 +133,4 @@ uv run python scripts/export_onnx.py --weights weights/detect/yolo11n/weights/be
 - **显存不足**：调小 `--batch`，或 `--imgsz 320`。
 - **过拟合**：增加数据、增强、降低 epochs、提高 `--close-mosaic`。
 - **导出 ONNX 后节点含动态轴**：确认 `dynamic=False`（脚本已默认）。
-- **nncase 量化掉点严重**：增加校准集多样性（20~100 张），换 `--calib-method KLD/ACIQ`。
+- **nncase 量化掉点严重**：增加校准集多样性（20~100 张），换 `--calib-method NoClip`（或对比 `Kld`）。注意 nncase 2.x 仅支持 `Kld` 和 `NoClip`（大小写敏感）。
