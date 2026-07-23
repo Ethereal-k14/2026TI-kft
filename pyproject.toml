@@ -52,4 +52,6 @@ explicit = true
 [tool.uv.sources]
 torch = [{ index = "pytorch-cu121" }]
 torchvision = [{ index = "pytorch-cu121" }]
+# Note: nncase-kpu 依赖项关联 Windows 平台的 whl 路径。若在 Linux/WSL2 环境中运行，
+# 请使用 requirements-convert.txt 安装转换工具链。
 nncase-kpu = { path = "tools/nncase_kpu-2.11.0-py2.py3-none-win_amd64.whl" }

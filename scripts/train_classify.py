@@ -62,8 +62,12 @@ def main():
     best_path = f"{a.project}/{a.name}/weights/best.pt"
     print("\n" + "=" * 50)
     print(f"🎉 训练完成！最佳模型参数已保存至: {best_path}")
-    print(f"👉 下一步请运行 ONNX 导出命令:")
-    print(f"   uv run python scripts/export_onnx.py --weights {best_path} --imgsz {a.imgsz} --task classify")
+    print(f"[INFO] 尝试自动导出 ONNX: {best_path}")
+    try:
+        m = YOLO(best_path)
+        m.export(format="onnx", imgsz=a.imgsz, dynamic=False, simplify=True, opset=13)
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] 自动导出 ONNX 失败，可稍后手动执行 scripts/export_onnx.py：{e}")
     print("=" * 50)
     return 0
 

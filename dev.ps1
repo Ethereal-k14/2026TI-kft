@@ -170,9 +170,10 @@ switch ($Command.ToLower()) {
     }
 
     "pack" {
-        if (-not $Arg1 -or -not $Arg2) { Write-Error "用法: .\dev.ps1 pack <model.kmodel> <data.yaml>"; exit 1 }
-        Write-Host "打包部署包: model=$Arg1 data=$Arg2" -ForegroundColor Blue
-        Run-Py "tools/generate_deploy_pack.py", "--model", $Arg1, "--data", $Arg2, "--task", "detect", "--imgsz", "320"
+        if (-not $Arg1 -or -not $Arg2) { Write-Error "用法: .\dev.ps1 pack <model.kmodel> <data.yaml> [task=detect]"; exit 1 }
+        $task = if ($Arg3) { $Arg3 } else { "detect" }
+        Write-Host "打包部署包: model=$Arg1 data=$Arg2 task=$task" -ForegroundColor Blue
+        Run-Py "tools/generate_deploy_pack.py", "--model", $Arg1, "--data", $Arg2, "--task", $task, "--imgsz", "320"
     }
 
     default {
