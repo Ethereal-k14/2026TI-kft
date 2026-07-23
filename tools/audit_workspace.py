@@ -54,13 +54,15 @@ def main():
     section(3, total, "项目关键文件与目录完整性")
     expected = [
         "pyproject.toml", ".python-version", "requirements-convert.txt", "README.md",
+        "STRUCTURE.md", "QUICKSTART.md", "dev.ps1",
         ".gitignore", ".gitattributes", "uv.lock",
         "configs/coco128.yaml", "configs/coco_pose.yaml", "configs/coco_seg.yaml",
         "configs/classify_sample.yaml", "configs/obb_sample.yaml",
+        "scripts/_device.py",
         "scripts/train_detect.py", "scripts/train_classify.py", "scripts/train_segment.py",
         "scripts/train_pose.py", "scripts/train_obb.py",
         "scripts/infer.py", "scripts/track.py", "scripts/export_onnx.py",
-        "tools/verify_env.py", "tools/generate_deploy_pack.py", "tools/to_kmodel.py",
+        "tools/verify_env.py", "tools/audit_workspace.py", "tools/generate_deploy_pack.py", "tools/to_kmodel.py",
         "templates/canmv_k230_demo.py", "templates/canmv_k230_web_streamer.py",
         "templates/k230_cpp_runner.sh",
         "data/coco_labels.txt",

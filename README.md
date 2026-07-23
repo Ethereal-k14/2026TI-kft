@@ -4,6 +4,8 @@
 > 目标检测 / 实例分割 / 姿态估计 / 多目标追踪，主打 **YOLO11n** 等高精度、低开销模型，
 > 并提供从自训练到 `nncase` 转 `.kmodel` 上板部署的全流程。
 
+📖 [QUICKSTART.md](QUICKSTART.md) — 一张卡搞定全流程 &nbsp;|&nbsp; 📂 [STRUCTURE.md](STRUCTURE.md) — 目录规范 &nbsp;|&nbsp; ⚡ `dev.ps1` — Windows 快捷命令
+
 ---
 
 ## 1. 目录结构
@@ -53,6 +55,8 @@ k230-project/
     ├── k230_deploy.md
     └── models_overview.md
 ```
+
+> 📂 详细目录规范与新增文件 Checklist 见 [STRUCTURE.md](STRUCTURE.md)
 
 ## 2. 快速开始
 
