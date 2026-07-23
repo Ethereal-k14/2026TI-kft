@@ -68,6 +68,7 @@ function Show-Help {
     Write-Host "  .\dev.ps1 kmodel  <model.onnx>  [imgsz=320]      # 转换 .kmodel" -ForegroundColor Blue
     Write-Host "  .\dev.ps1 pack    <model.kmodel> <data.yaml>     # 打包部署包" -ForegroundColor Blue
     Write-Host ""
+    Write-Host "  .\dev.ps1 clean              # 清理临时文件夹 (runs, dump, __pycache__)" -ForegroundColor DarkCyan
     Write-Host "  .\dev.ps1 help               # 显示此帮助" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "提示：使用 Tab 补全命令名；所有路径支持相对路径。" -ForegroundColor DarkGray
@@ -159,6 +160,13 @@ switch ($Command.ToLower()) {
         $out   = $Arg1 -replace "\.onnx$", ".kmodel"
         Write-Host "转换 kmodel: $Arg1 -> $out (imgsz=$imgsz)" -ForegroundColor Blue
         Run-Py "tools/to_kmodel.py", "--model", $Arg1, "--dataset", "datasets/calib", "--input-size", $imgsz, $imgsz, "--output", $out
+    }
+
+    "clean" {
+        Write-Host "清理临时运行与缓存目录..." -ForegroundColor Cyan
+        Remove-Item -Recurse -Force "runs", "dump", "deploy_pack" -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -Filter "__pycache__" -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "[OK] 清理完毕，工作区恢复干净状态。" -ForegroundColor Green
     }
 
     "pack" {

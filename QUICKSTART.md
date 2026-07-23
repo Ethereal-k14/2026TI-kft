@@ -141,6 +141,9 @@ uv run python tools/audit_workspace.py
 # 全流程功能验证
 uv run python tools/verify_env.py
 
+# 清理工作区临时文件
+.\dev.ps1 clean
+
 # 查看所有训练参数
 uv run python scripts/train_detect.py --help
 ```
