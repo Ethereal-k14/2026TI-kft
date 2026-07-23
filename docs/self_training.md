@@ -123,8 +123,12 @@ uv run python scripts/track.py --source video.mp4 --weights best.pt --tracker bo
 uv run python scripts/export_onnx.py --weights weights/detect/yolo11n/weights/best.pt --imgsz 640
 ```
 
-导出后得到 `best.onnx`，下一步到 **Linux/WSL2** 用 `tools/to_kmodel.py` 转 `.kmodel`
-（见 `docs/k230_deploy.md`）。
+导出后得到 `best.onnx`，下一步用 `tools/to_kmodel.py` 转 `.kmodel`：
+
+- **Windows 原生（推荐）**：`uv run python tools/to_kmodel.py ...`，此工程已预置 .NET 8 向前兼容，无需切换到 Linux。
+- **Linux/WSL2（备选）**：拷贝 ONNX 与校准集到 Linux 后执行同样命令。
+
+详见 `docs/k230_deploy.md`。
 
 ---
 

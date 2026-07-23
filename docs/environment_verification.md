@@ -50,7 +50,7 @@ uv run python tools/verify_env.py
 
 1. Python 版本与虚拟环境
 2. 核心依赖包版本（13 个）
-3. 项目文件完整性（36 个关键文件）
+3. 项目文件完整性（42 个关键文件）
 4. 全部源码 AST 编译检查
 5. Git 仓库与远程配置
 6. YAML 配置文件语法校验
@@ -90,16 +90,25 @@ uv run python scripts/train_detect.py --data configs/coco128.yaml --model yolo11
 uv run python scripts/export_onnx.py --weights weights/detect/yolo11n/weights/best.pt --imgsz 320 --out weights/best_320.onnx
 ```
 
-### Step 3: 转为 K230 专用的 .kmodel (Linux / WSL2)
+### Step 3: 转为 K230 专用的 .kmodel
+
+**Windows 原生（本工程默认，推荐）**：
 ```bash
-python tools/to_kmodel.py --model weights/best_320.onnx --dataset datasets/calib --input-size 320 320 --output best.kmodel
+uv run python tools/to_kmodel.py --model weights/best_320.onnx --dataset datasets/calib --input-size 320 320 --output weights/best.kmodel
 ```
+
+**Linux / WSL2（备选路径）**：把 ONNX 与校准图片目录拷到 Linux 环境后执行同样命令。
+```bash
+python tools/to_kmodel.py --model best_320.onnx --dataset calib --input-size 320 320 --output best.kmodel
+```
+
+> ℹ️ Windows 原生可转换的前提：本机已安装 .NET 8.0，`tools/to_kmodel.py` 自动设置 `DOTNET_ROLL_FORWARD=Major` 实现向前兼容。安装依赖参考 `docs/k230_deploy.md` 第 1、2 节。
 
 ---
 
 ## 4. 常见问题排查
 
-- **Q: 为什么不能在 Windows 上直接转 `.kmodel`？**
-  - A: 官方 `nncase-kpu` 量化编译插件依赖 dotnet 7.0 及 Linux 平台原生 C++ 动态库，在 Windows 上极易产生依赖缺失，强烈推荐在 **Linux / WSL2** 或官方 Docker (`ghcr.io/kendryte/k230_sdk`) 中转换。
+- **Q: 在 Windows 上转换 `.kmodel` 需要哪些前置条件？**
+  - A: 本工程已支持 Windows 原生转换：预置了 `tools/nncase_kpu-2.11.0-py2.py3-none-win_amd64.whl`，`tools/to_kmodel.py` 内部自动配置 `.NET 8` 向前兼容 `DOTNET_ROLL_FORWARD=Major`。只需已安装 .NET 8.0 即可直运行。如果优先选择 Linux/WSL2 备选路径，安装见 `docs/k230_deploy.md` 第 2 节。
 - **Q: K230 上板推理报 Shape mismatch 错误？**
   - A: 导出 ONNX 时的 `--imgsz`、`to_kmodel.py` 的 `--input-size` 与开发板运行软件 `./yolo.elf` 的 `-ai_frame_width / -ai_frame_height` 三者必须完全相等。推荐 320×320（低开销首选）或 640×640（高精度）。

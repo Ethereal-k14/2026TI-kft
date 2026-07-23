@@ -77,7 +77,7 @@ scripts/
 | `--imgsz` | 输入尺寸 | 640（detect/seg/pose/obb）/ 224（classify） |
 | `--batch` | Batch size | 16（classify 为 32） |
 | `--project` | 输出根目录 | `weights/<task>` |
-| `--name` | 实验子目录名 | `yolo11n_<task>` |
+| `--name` | 实验子目录名 | `yolo11n`（detect）/ `yolo11n-seg`（segment）/ `yolo11n-pose`（pose）/ `yolo11n_cls`（classify）/ `yolo11n_obb`（obb） |
 | `--device` | 设备（空=自动） | 自动探测 GPU → CPU |
 
 **命名规范**：新增脚本以 `动词_任务.py` 格式命名，小写下划线。`_device.py` 开头下划线表示内部公共模块。
@@ -90,7 +90,7 @@ scripts/
 tools/
 ├── verify_env.py         # 全流程功能验证（训练→推理→ONNX导出 ~17s）
 ├── audit_workspace.py    # 7 维工作区完整性审计（依赖/文件/AST/Git/YAML）
-├── to_kmodel.py          # nncase PTQ 量化：ONNX → .kmodel（Linux/WSL2/Windows）
+├── to_kmodel.py          # nncase PTQ 量化：ONNX → .kmodel（Windows原生 / Linux / WSL2 均可）
 ├── generate_deploy_pack.py # 一键打包 K230 板端部署文件（kmodel+labels+脚本）
 └── nncase_kpu-2.11.0-py2.py3-none-win_amd64.whl  # 预置 Windows 离线 wheel
 ```

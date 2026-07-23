@@ -158,6 +158,6 @@ uv run python scripts/train_detect.py --help
 | ONNX opset | `13` | nncase 2.x 最佳兼容 |
 | 导出模式 | `dynamic=False` | KPU 静态 Shape 推理 |
 | 量化类型 | `uint8` | K230 KPU 原生精度 |
-| 校准方法 | `Kld`（大小写敏感） | nncase 2.x 唯一合法值 |
+| 校准方法 | `Kld`（大小写敏感，推荐）/ `NoClip` | nncase 2.x 仅支持这两项字符串（勿写 `KLD`/`ACIQ`） |
 | 预处理 | `norm255` | 省去板端 CPU 前处理 |
 | nncase 版本 | **必须与 K230 镜像一致** | 不匹配=上板 Invalid kmodel |

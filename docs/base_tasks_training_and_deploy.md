@@ -53,7 +53,7 @@ uv run python tools/generate_deploy_pack.py --model best.kmodel --data configs/c
 uv run python scripts/train_segment.py --data configs/coco_seg.yaml --epochs 100 --imgsz 320
 
 # 2. 导出 ONNX
-uv run python scripts/export_onnx.py --weights weights/segment/yolo11n_seg/weights/best.pt --imgsz 320 --task segment
+uv run python scripts/export_onnx.py --weights weights/segment/yolo11n-seg/weights/best.pt --imgsz 320 --task segment
 
 # 3. 部署打包
 uv run python tools/generate_deploy_pack.py --model best.kmodel --data configs/coco_seg.yaml --task segment --imgsz 320
@@ -65,7 +65,7 @@ uv run python tools/generate_deploy_pack.py --model best.kmodel --data configs/c
 uv run python scripts/train_pose.py --data configs/coco_pose.yaml --epochs 100 --imgsz 320
 
 # 2. 导出 ONNX
-uv run python scripts/export_onnx.py --weights weights/pose/yolo11n_pose/weights/best.pt --imgsz 320 --task pose
+uv run python scripts/export_onnx.py --weights weights/pose/yolo11n-pose/weights/best.pt --imgsz 320 --task pose
 
 # 3. 部署打包
 uv run python tools/generate_deploy_pack.py --model best.kmodel --data configs/coco_pose.yaml --task pose --imgsz 320
@@ -91,8 +91,10 @@ uv run python tools/generate_deploy_pack.py --model best.kmodel --data configs/o
 
 | `-task_type` 参数 | 对应任务 | 板端启动命令示例 |
 | :--- | :--- | :--- |
-| `detect` | 目标检测 | `./yolo.elf -model_type yolo11 -task_type detect -kmodel_path best.kmodel` |
-| `classify` | 图像分类 | `./yolo.elf -model_type yolo11 -task_type classify -kmodel_path best.kmodel` |
-| `segment` | 实例分割 | `./yolo.elf -model_type yolo11 -task_type segment -kmodel_path best.kmodel` |
-| `pose` | 关键点姿态 | `./yolo.elf -model_type yolo11 -task_type pose -kmodel_path best.kmodel` |
-| `obb` | 旋转框识别 | `./yolo.elf -model_type yolo11 -task_type obb -kmodel_path best.kmodel` |
+| `detect` | 目标检测 | `./yolo.elf -model_type yolo11 -task_type detect -task_mode video -kmodel_path best.kmodel -labels_txt_filepath coco_labels.txt -conf_thres 0.35 -nms_thres 0.65` |
+| `classify` | 图像分类 | `./yolo.elf -model_type yolo11 -task_type classify -task_mode video -kmodel_path best.kmodel -labels_txt_filepath labels.txt` |
+| `segment` | 实例分割 | `./yolo.elf -model_type yolo11 -task_type segment -task_mode video -kmodel_path best.kmodel -labels_txt_filepath coco_labels.txt` |
+| `pose` | 关键点姿态 | `./yolo.elf -model_type yolo11 -task_type pose -task_mode video -kmodel_path best.kmodel -labels_txt_filepath coco_labels.txt` |
+| `obb` | 旋转框识别 | `./yolo.elf -model_type yolo11 -task_type obb -task_mode video -kmodel_path best.kmodel -labels_txt_filepath labels.txt` |
+
+> **说明**：`-task_mode video` 表示摄像头实时模式；`-labels_txt_filepath` 与 `-kmodel_path` 为必填参数。详见 `docs/k230_deploy.md`。
