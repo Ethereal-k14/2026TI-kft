@@ -77,7 +77,7 @@ def main():
             kpu.run()
             
             # 获取模型输出 Tensor
-            outputs = [kpu.get_output_tensor(i) for i in range(kpu.inputs_size())]
+            outputs = [kpu.get_output_tensor(i) for i in range(kpu.outputs_size())]
 
             # 在此接入后处理 (YOLO11/v8 后处理)
             # CanMV 常用官方 C 扩展库或 ulab 简化计算

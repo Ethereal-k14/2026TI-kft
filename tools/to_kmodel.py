@@ -114,7 +114,7 @@ def compile_kmodel(args):
     compile_options.target = "k230"
     compile_options.quant_type = args.quant_type          # uint8 / int8
     compile_options.input_type = "uint8" if mode == "norm255" else "float32"
-    compile_options.output_type = "uint8"
+    compile_options.output_type = "float32"
     if args.dump_dir:
         compile_options.dump_ir = True
         compile_options.dump_asm = True

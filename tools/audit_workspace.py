@@ -63,6 +63,7 @@ def main():
         "scripts/train_pose.py", "scripts/train_obb.py",
         "scripts/infer.py", "scripts/track.py", "scripts/export_onnx.py",
         "tools/verify_env.py", "tools/audit_workspace.py", "tools/generate_deploy_pack.py", "tools/to_kmodel.py",
+        "tools/k230.py", "tools/pipeline.py", "tools/check_dataset.py", "tools/deploy_sd.py",
         "templates/canmv_k230_demo.py", "templates/canmv_k230_web_streamer.py",
         "templates/k230_cpp_runner.sh",
         "data/coco_labels.txt",

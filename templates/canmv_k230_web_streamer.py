@@ -106,6 +106,46 @@ def start_mjpeg_web_server(ip, port=8080):
     return s
 
 
+HTML_DASHBOARD = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K230 AI 实时视觉控制台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+  .header { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 800px; margin-bottom: 20px; padding: 16px 24px; background: #1e293b; border-radius: 12px; border: 1px solid #334155; }
+  .title { font-size: 1.25rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px; }
+  .badge { background: #166534; color: #4ade80; font-size: 0.75rem; padding: 4px 10px; border-radius: 9999px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .pulse { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: blink 1.5s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .stream-card { background: #1e293b; border-radius: 16px; padding: 12px; border: 1px solid #334155; width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+  .stream-img { width: 100%; height: auto; max-height: 520px; border-radius: 8px; object-fit: contain; background: #000; }
+  .info-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; width: 100%; max-width: 800px; margin-top: 20px; }
+  .info-card { background: #1e293b; padding: 14px 18px; border-radius: 10px; border: 1px solid #334155; }
+  .info-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
+  .info-val { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">⚡ K230 CanMV AI 视觉直方控制台</div>
+    <div class="badge"><div class="pulse"></div> LIVE ONLINE</div>
+  </div>
+  <div class="stream-card">
+    <img src="/stream" class="stream-img" alt="K230 Live Stream">
+  </div>
+  <div class="info-bar">
+    <div class="info-card"><div class="info-label">硬件平台</div><div class="info-val">Canaan K230 KPU</div></div>
+    <div class="info-card"><div class="info-label">当前模型</div><div class="info-val">best.kmodel (YOLO)</div></div>
+    <div class="info-card"><div class="info-label">输入分辨率</div><div class="info-val">320 x 320</div></div>
+    <div class="info-card"><div class="info-label">推流模式</div><div class="info-val">HTTP MJPEG</div></div>
+  </div>
+</body>
+</html>"""
+
+
 def main():
     if not HAS_CANMV_HARDWARE:
         print("[ERR] 必须在 CanMV K230 板端 MicroPython 环境下运行此脚本。")
@@ -132,41 +172,46 @@ def main():
             try:
                 cl, addr = server_socket.accept()
                 print(f"[NET] 收到浏览器客户端连接: {addr}")
+                try:
+                    req = cl.recv(512).decode('utf-8', 'ignore')
+                    if "GET /stream" in req:
+                        # 发送 HTTP MJPEG 头信息
+                        header = (
+                            "HTTP/1.0 200 OK\r\n"
+                            "Server: K230-WebStreamer\r\n"
+                            "Connection: close\r\n"
+                            "Max-Age: 0\r\n"
+                            "Expires: 0\r\n"
+                            "Cache-Control: no-store, no-cache, must-revalidate\r\n"
+                            "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n"
+                        )
+                        cl.send(header.encode('utf-8'))
 
-                # 发送 HTTP MJPEG 头信息
-                header = (
-                    "HTTP/1.0 200 OK\r\n"
-                    "Server: K230-WebStreamer\r\n"
-                    "Connection: close\r\n"
-                    "Max-Age: 0\r\n"
-                    "Expires: 0\r\n"
-                    "Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n"
-                    "Pragma: no-cache\r\n"
-                    "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n"
-                )
-                cl.send(header.encode('utf-8'))
-
-                # 持续推送 JPEG 帧
-                while True:
-                    img = Camera.snapshot()
-
-                    # 送入 KPU 推理
-                    kpu.set_input_tensor(0, img)
-                    kpu.run()
-
-                    # 在图像上绘制假定推理结果（如框和标签）
-                    # img.draw_rectangle(50, 50, 150, 150, color=(255, 0, 0), thickness=2)
-                    # img.draw_string(52, 32, "target 0.95", scale=2, color=(0, 255, 0))
-
-                    # 硬件转为 JPEG 字节流
-                    jpg_bytes = img.compress(quality=75)
-
-                    # 发送 multipart 帧边界
-                    frame_header = f"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {len(jpg_bytes)}\r\n\r\n"
-                    cl.send(frame_header.encode('utf-8'))
-                    cl.send(jpg_bytes)
-                    cl.send(b"\r\n")
-
+                        # 持续推送 JPEG 帧
+                        while True:
+                            img = Camera.snapshot()
+                            kpu.set_input_tensor(0, img)
+                            kpu.run()
+                            jpg_bytes = img.compress(quality=85)
+                            frame_header = f"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {len(jpg_bytes)}\r\n\r\n"
+                            cl.send(frame_header.encode('utf-8'))
+                            cl.send(jpg_bytes)
+                            cl.send(b"\r\n")
+                    else:
+                        # 返回高颜值 HTML Dashboard 页面
+                        html_bytes = HTML_DASHBOARD.encode('utf-8')
+                        response_header = (
+                            "HTTP/1.0 200 OK\r\n"
+                            "Content-Type: text/html; charset=utf-8\r\n"
+                            f"Content-Length: {len(html_bytes)}\r\n"
+                            "Connection: close\r\n\r\n"
+                        )
+                        cl.send(response_header.encode('utf-8'))
+                        cl.send(html_bytes)
+                except Exception as client_err:
+                    print(f"[NET] 客户端连接完成或断开: {client_err}")
+                finally:
+                    cl.close()
             except OSError:
                 # accept 超时，继续抓帧循环
                 pass

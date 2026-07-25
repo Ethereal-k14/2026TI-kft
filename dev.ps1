@@ -17,7 +17,7 @@
 
 param(
     [Parameter(Position=0)]
-    [string]$Command = "help",
+    [string]$Command = "menu",
     [Parameter(Position=1)]
     [string]$Arg1 = "",
     [Parameter(Position=2)]
@@ -64,9 +64,10 @@ function Show-Help {
     Write-Host "  .\dev.ps1 track   <source> <weights.pt>          # 多目标追踪" -ForegroundColor Magenta
     Write-Host ""
     Write-Host "  导出与部署" -ForegroundColor White
-    Write-Host "  .\dev.ps1 export  <weights.pt>  [imgsz=320]      # 导出 ONNX" -ForegroundColor Blue
-    Write-Host "  .\dev.ps1 kmodel  <model.onnx>  [imgsz=320]      # 转换 .kmodel" -ForegroundColor Blue
-    Write-Host "  .\dev.ps1 pack    <model.kmodel> <data.yaml> [task=detect]  # 打包部署包" -ForegroundColor Blue
+    Write-Host "  .\dev.ps1 export    <weights.pt>  [imgsz=320]      # 导出 ONNX" -ForegroundColor Blue
+    Write-Host "  .\dev.ps1 kmodel    <model.onnx>  [imgsz=320]      # 转换 .kmodel" -ForegroundColor Blue
+    Write-Host "  .\dev.ps1 pack      <model.kmodel> <data.yaml> [task=detect]  # 打包部署包" -ForegroundColor Blue
+    Write-Host "  .\dev.ps1 pipeline  <data.yaml> [epochs=10] [imgsz=320] [task=detect] # 一键闭环全管线" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  .\dev.ps1 clean              # 清理临时文件夹 (runs, dump, __pycache__)" -ForegroundColor DarkCyan
     Write-Host "  .\dev.ps1 help               # 显示此帮助" -ForegroundColor DarkGray
@@ -174,6 +175,31 @@ switch ($Command.ToLower()) {
         $task = if ($Arg3) { $Arg3 } else { "detect" }
         Write-Host "打包部署包: model=$Arg1 data=$Arg2 task=$task" -ForegroundColor Blue
         Run-Py "tools/generate_deploy_pack.py", "--model", $Arg1, "--data", $Arg2, "--task", $task, "--imgsz", "320"
+    }
+
+    "menu" { Run-Py "tools/k230.py" }
+
+    "sd-deploy" {
+        $drive = if ($Arg1) { $Arg1 } else { "" }
+        if ($drive) {
+            Run-Py "tools/deploy_sd.py", "--drive", $drive
+        } else {
+            Run-Py "tools/deploy_sd.py"
+        }
+    }
+
+    "check-data" {
+        if (-not $Arg1) { Write-Error "用法: .\dev.ps1 check-data <data.yaml>"; exit 1 }
+        Run-Py "tools/check_dataset.py", "--data", $Arg1
+    }
+
+    "pipeline" {
+        if (-not $Arg1) { Write-Error "用法: .\dev.ps1 pipeline <data.yaml> [epochs=10] [imgsz=320] [task=detect]"; exit 1 }
+        $epochs = if ($Arg2) { $Arg2 } else { "10" }
+        $imgsz  = if ($Arg3) { $Arg3 } else { "320" }
+        $task   = if ($PSBoundParameters.ContainsKey('Arg4')) { $Arg4 } else { "detect" }
+        Write-Host "运行一键闭环管线: data=$Arg1 epochs=$epochs imgsz=$imgsz task=$task" -ForegroundColor Yellow
+        Run-Py "tools/pipeline.py", "--data", $Arg1, "--epochs", $epochs, "--imgsz", $imgsz, "--task", $task
     }
 
     default {
