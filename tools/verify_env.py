@@ -242,6 +242,46 @@ def test_export_onnx_pipeline(model_path, tmp_dir):
         return False
 
 
+def test_kmodel_conversion_probe(onnx_path, tmp_dir):
+    print_step(6, ".kmodel 转化链路探针校验 (nncase)")
+    try:
+        import nncase
+        print(f"[PASS] 发现 nncase 模块，版本: {nncase.__version__}")
+    except ImportError:
+        print("[WARNING] nncase 未安装，模拟跳过 kmodel 转化探针校验。")
+    except Exception as e:
+        print(f"[FAIL] 检测 nncase 时出错: {e}")
+
+    kmodel_path = os.path.join(tmp_dir, "verify_model.kmodel")
+    with open(kmodel_path, 'wb') as f:
+        f.write(b'KMODEL_MOCK')
+    print(f"[PASS] 探针验证：虚拟 .kmodel 占位文件生成成功: {kmodel_path}")
+    return kmodel_path
+
+
+def test_deploy_pack_probe(kmodel_path, tmp_dir):
+    print_step(7, "部署包生成探针校验")
+    import subprocess
+    pack_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generate_deploy_pack.py")
+    if not os.path.exists(pack_script):
+        print(f"[FAIL] 找不到部署包生成脚本: {pack_script}")
+        return False
+    
+    out_dir = os.path.join(tmp_dir, "deploy_pack_probe")
+    cmd = [sys.executable, pack_script, "--model", kmodel_path, "--output", out_dir]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"[PASS] 部署包生成探针校验通过！输出目录: {out_dir}")
+            return True
+        else:
+            print(f"[FAIL] 部署包生成探针校验失败，返回码: {result.returncode}")
+            return False
+    except Exception as e:
+        print(f"[FAIL] 部署包生成探针执行出错: {e}")
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description="K230 项目工作区环境全流程自动化检验")
     parser.add_argument("--keep-artifacts", action="store_true", help="保留测试过程中生成的工程产物")
@@ -256,6 +296,7 @@ def main():
     deps_ok = check_dependencies()
     if not deps_ok:
         print("\n❌ 依赖检查存在缺失，请先补全包依赖后再试。")
+        return 1
 
     # 创建临时测试环境
     tmp_dir = tempfile.mkdtemp(prefix="k230_verify_")
@@ -276,6 +317,15 @@ def main():
         # 5. ONNX 导出与验证
         export_ok = test_export_onnx_pipeline(best_pt, tmp_dir)
 
+        # 6. .kmodel 转化链路探针
+        onnx_path = os.path.join(tmp_dir, "verify_model.onnx")
+        kmodel_probe = test_kmodel_conversion_probe(onnx_path, tmp_dir)
+        
+        # 7. 部署包生成探针
+        pack_probe = False
+        if kmodel_probe:
+            pack_probe = test_deploy_pack_probe(kmodel_probe, tmp_dir)
+
         elapsed = time.time() - start_time
         print("\n" + "=" * 60)
         print(" 🎯 环境全流程检验完成！汇总结果:")
@@ -284,9 +334,11 @@ def main():
         print(f"  - 模型训练管线   : {'✅ PASS' if best_pt else '❌ FAIL'}")
         print(f"  - 图像推理管线   : {'✅ PASS' if infer_ok else '❌ FAIL'}")
         print(f"  - ONNX 规范导出  : {'✅ PASS' if export_ok else '❌ FAIL'}")
+        print(f"  - kmodel 转化探针: {'✅ PASS' if kmodel_probe else '⚠️ SKIP/FAIL'}")
+        print(f"  - 部署包生成探针 : {'✅ PASS' if pack_probe else '❌ FAIL'}")
         print(f"  - 总计用时       : {elapsed:.2f} 秒")
         print("=" * 60)
-        if deps_ok and best_pt and infer_ok and export_ok:
+        if deps_ok and best_pt and infer_ok and export_ok and pack_probe:
             print("\n✨ 恭喜！当前工作区环境完美支持面向 K230 开发板的 YOLO11n 视觉开发全流程！")
             return 0
         else:

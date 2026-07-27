@@ -22,6 +22,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.whl
 
 # 2. Python 字节码与缓存文件
 __pycache__/
@@ -42,6 +43,13 @@ htmlcov/
 runs/
 dump/
 deploy_pack*/
+tmp/
+*.tmp
+*.mp4
+*.avi
+*.zip
+*.tar.gz
+weights/*/*
 *.pt
 *.onnx
 *.kmodel

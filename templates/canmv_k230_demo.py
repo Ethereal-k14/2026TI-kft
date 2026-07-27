@@ -14,6 +14,7 @@ CanMV K230 MicroPython 板端部署示例模板 (templates/canmv_k230_demo.py)
 import time
 import os
 import sys
+import gc
 
 # 尝试导入 CanMV 板级专属硬件 API
 try:
@@ -72,6 +73,10 @@ def main():
             # 获取摄像头帧
             img = Camera.snapshot()
             
+            # 最佳实践：如果在输入 KPU 前需要 Resize，请优先使用 K230 硬件加速模块 AI2D
+            # 它支持无 CPU 损耗的等比缩放 (LetterBox) 及 padding 操作，极大提升端侧性能
+            # 示例: ai2d = nn.ai2d(); ai2d.set_dtype(...); ai2d.builder(...); ai2d.run(...)
+            
             # 将帧数据灌入 KPU
             kpu.set_input_tensor(0, img)
             kpu.run()
@@ -85,6 +90,9 @@ def main():
             # 显示结果帧
             Display.show_image(img)
             time.sleep_ms(1)
+            
+            # 显式回收内存，解决堆碎片化与长时间运行时的 OOM/卡顿风险
+            gc.collect()
 
     except KeyboardInterrupt:
         print("[INFO] 接收到退出信号")

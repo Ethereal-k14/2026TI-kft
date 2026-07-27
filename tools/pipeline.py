@@ -81,7 +81,15 @@ def main():
     run_cmd(train_cmd)
 
     # 寻找生成的 best.pt 路径
-    pt_path = os.path.join(PROJECT_ROOT, "weights", args.task, "yolo11n", "weights", "best.pt")
+    task_names = {
+        "detect": "yolo11n",
+        "classify": "yolo11n_cls",
+        "segment": "yolo11n-seg",
+        "pose": "yolo11n-pose",
+        "obb": "yolo11n_obb",
+    }
+    exp_name = task_names.get(args.task, "yolo11n")
+    pt_path = os.path.join(PROJECT_ROOT, "weights", args.task, exp_name, "weights", "best.pt")
     if not os.path.exists(pt_path):
         # 兼容备选路径
         pt_path = os.path.join(PROJECT_ROOT, "weights", "best.pt")

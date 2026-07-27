@@ -24,9 +24,24 @@ import shutil
 import sys
 import yaml
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import json
+import time
+import subprocess
+
 # 强制标准输出 UTF-8，防止 Windows PowerShell / CMD GBK 编码报错
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+
+def get_git_commit_sha():
+    try:
+        result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
 
 
 def parse_args():
@@ -93,14 +108,14 @@ def main():
     print(f"  [✓] 封装标签: labels.txt (共 {len(labels)} 类)")
 
     # 3. 复制并填充 CanMV (MicroPython) 示例入口脚本 main.py
-    template_canmv = os.path.join("templates", "canmv_k230_demo.py")
+    template_canmv = os.path.join(PROJECT_ROOT, "templates", "canmv_k230_demo.py")
     main_py_dst = os.path.join(output_dir, "main.py")
     if os.path.exists(template_canmv):
         shutil.copy2(template_canmv, main_py_dst)
         print(f"  [✓] 封装 CanMV MicroPython 入口: main.py")
 
     # 4. 复制并定制 Linux C++ 启动脚本 run.sh
-    template_sh = os.path.join("templates", "k230_cpp_runner.sh")
+    template_sh = os.path.join(PROJECT_ROOT, "templates", "k230_cpp_runner.sh")
     run_sh_dst = os.path.join(output_dir, "run.sh")
     if os.path.exists(template_sh):
         with open(template_sh, "r", encoding="utf-8") as f:
@@ -140,6 +155,20 @@ def main():
     with open(os.path.join(output_dir, "README.txt"), "w", encoding="utf-8") as f:
         f.write(readme_content)
     print(f"  [✓] 生成板端部署说明: README.txt")
+
+    # 6. 生成 MLOps 元数据追溯 metadata.json
+    metadata = {
+        "model_name": target_model_name,
+        "task": a.task,
+        "imgsz": a.imgsz,
+        "num_classes": len(labels),
+        "build_time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "commit_sha": get_git_commit_sha()
+    }
+    metadata_path = os.path.join(output_dir, "metadata.json")
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=4, ensure_ascii=False)
+    print(f"  [✓] 生成 MLOps 元数据追溯文件: metadata.json")
 
     print(f"\n✨ 打包完成！你可以将 {output_dir}/ 文件夹内的所有文件拷贝到 K230 开发板运行。")
     return 0

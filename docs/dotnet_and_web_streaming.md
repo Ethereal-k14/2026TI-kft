@@ -43,7 +43,7 @@
 
 ### 2.2 示例代码与运行
 
-项目内置了完整的 Web 串流模板：[templates/canmv_k230_web_streamer.py](file:///d:/Destop/k230-project/templates/canmv_k230_web_streamer.py)。
+项目内置了完整的 Web 串流模板：[templates/canmv_k230_web_streamer.py](../templates/canmv_k230_web_streamer.py)。
 
 #### 上板操作步骤：
 1. **直接接线**：用 Type-C 数据线连电脑，或者用标准 RJ45 网线插板卡网口。

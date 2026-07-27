@@ -25,7 +25,7 @@ def parse_args():
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--conf", type=float, default=0.35)
     p.add_argument("--device", default="")
-    p.add_argument("--save", action="store_true", default=True)
+    p.add_argument("--save", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--project", default="weights/track")
     p.add_argument("--name", default="exp")
     return p.parse_args()

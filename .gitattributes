@@ -22,3 +22,6 @@
 *.jpg binary
 *.png binary
 *.bmp binary
+*.whl binary
+*.elf binary
+*.bin binary

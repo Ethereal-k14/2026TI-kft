@@ -41,6 +41,7 @@ def main():
         project=a.project,
         name=a.name,
         exist_ok=True,
+        close_mosaic=10,
     )
     kwargs["device"] = resolve_device(a.device)
 

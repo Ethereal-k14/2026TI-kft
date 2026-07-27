@@ -35,10 +35,13 @@ import sys
 # ---------------------------------------------------------------------------
 if sys.platform == "win32":
     _dotnet_x64 = r"C:\Program Files\dotnet"
-    if os.path.isdir(_dotnet_x64):
-        if _dotnet_x64 not in os.environ.get("PATH", ""):
-            os.environ["PATH"] = _dotnet_x64 + os.pathsep + os.environ.get("PATH", "")
-        os.environ.setdefault("DOTNET_ROOT", _dotnet_x64)
+    _in_path = "dotnet" in os.environ.get("PATH", "").lower()
+    _in_root = "DOTNET_ROOT" in os.environ
+    if not _in_path and not _in_root:
+        if os.path.isdir(_dotnet_x64):
+            if _dotnet_x64 not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = _dotnet_x64 + os.pathsep + os.environ.get("PATH", "")
+            os.environ.setdefault("DOTNET_ROOT", _dotnet_x64)
     # 本机装有 .NET 8.0.x；nncase 官方要求 .NET 7，但 .NET 向前兼容——
     # 设置 DOTNET_ROLL_FORWARD=Major 即可让 net7.0 的 nncase 跑在 .NET 8 运行时上。
     os.environ["DOTNET_ROLL_FORWARD"] = "Major"
@@ -92,6 +95,8 @@ def preprocess(image_path: str, width: int, height: int, mode: str):
 
 
 def collect_calib_images(dataset_dir: str, limit: int = 100):
+    if not os.path.exists(dataset_dir) or not os.path.isdir(dataset_dir):
+        return []
     exts = (".jpg", ".jpeg", ".png", ".bmp")
     files = sorted(
         os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir) if f.lower().endswith(exts)
@@ -154,6 +159,7 @@ def compile_kmodel(args):
     # 5) 编译并写出 kmodel
     compiler.compile()
     kmodel = compiler.gencode_tobytes()
+    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "wb") as f:
         f.write(kmodel)
     print(f"[OK] kmodel 已生成：{args.output}  ({len(kmodel)/1024:.1f} KB)")

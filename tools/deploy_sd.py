@@ -5,7 +5,7 @@ K230 SD 卡智能严谨部署同步工具 (tools/deploy_sd.py)
 安全防护机制：
   1. Win32 原生 API 检索 (GetDriveTypeW / GetVolumeInformationW / GetDiskFreeSpaceExW)
   2. 多重特征检测：卷标 (Volume Label)、文件系统 (FAT32/exFAT)、容量阈值、K230板端结构签名
-  3. 系统关键盘符硬隔离 guard (绝对禁止盲目写入 C:\, D:\ 或系统硬盘)
+  3. 系统关键盘符硬隔离 guard (绝对禁止盲目写入 C:\\, D:\\ 或系统硬盘)
   4. 交互式二次确认卡片 (支持明晰容量/文件系统/覆盖提示，默认 [y/N] 防误触)
 
 示例：
@@ -30,8 +30,6 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_windows_drive_info(drive_letter: str) -> dict:
     """使用 Win32 API 严谨检索 Windows 盘符元数据"""
-    import ctypes
-
     info = {
         "drive": drive_letter,
         "is_removable": False,
@@ -44,40 +42,43 @@ def get_windows_drive_info(drive_letter: str) -> dict:
         "warning": None,
     }
 
-    # 1. GetDriveTypeW
-    # 2 = DRIVE_REMOVABLE, 3 = DRIVE_FIXED, 4 = DRIVE_REMOTE, 5 = DRIVE_CDROM, 6 = DRIVE_RAMDISK
-    dt = ctypes.windll.kernel32.GetDriveTypeW(drive_letter)
-    if dt == 2:
-        info["is_removable"] = True
-        info["drive_type_str"] = "可移动磁盘 (DRIVE_REMOVABLE)"
-    elif dt == 3:
-        info["drive_type_str"] = "固定本地硬盘 (DRIVE_FIXED)"
-    elif dt == 4:
-        info["drive_type_str"] = "网络共享盘 (DRIVE_REMOTE)"
-    elif dt == 5:
-        info["drive_type_str"] = "光盘驱动器 (DRIVE_CDROM)"
-    else:
-        info["drive_type_str"] = f"其他设备 (Type {dt})"
+    if sys.platform == "win32":
+        import ctypes
 
-    # 2. GetVolumeInformationW
-    vol_buf = ctypes.create_unicode_buffer(1024)
-    fs_buf = ctypes.create_unicode_buffer(1024)
-    res_vol = ctypes.windll.kernel32.GetVolumeInformationW(
-        drive_letter, vol_buf, 1024, None, None, None, fs_buf, 1024
-    )
-    if res_vol:
-        info["volume_name"] = vol_buf.value or "[无卷标]"
-        info["file_system"] = fs_buf.value or "未知"
+        # 1. GetDriveTypeW
+        # 2 = DRIVE_REMOVABLE, 3 = DRIVE_FIXED, 4 = DRIVE_REMOTE, 5 = DRIVE_CDROM, 6 = DRIVE_RAMDISK
+        dt = ctypes.windll.kernel32.GetDriveTypeW(drive_letter)
+        if dt == 2:
+            info["is_removable"] = True
+            info["drive_type_str"] = "可移动磁盘 (DRIVE_REMOVABLE)"
+        elif dt == 3:
+            info["drive_type_str"] = "固定本地硬盘 (DRIVE_FIXED)"
+        elif dt == 4:
+            info["drive_type_str"] = "网络共享盘 (DRIVE_REMOTE)"
+        elif dt == 5:
+            info["drive_type_str"] = "光盘驱动器 (DRIVE_CDROM)"
+        else:
+            info["drive_type_str"] = f"其他设备 (Type {dt})"
 
-    # 3. GetDiskFreeSpaceExW
-    free_b = ctypes.c_ulonglong(0)
-    total_b = ctypes.c_ulonglong(0)
-    res_space = ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-        drive_letter, None, ctypes.byref(total_b), ctypes.byref(free_b)
-    )
-    if res_space:
-        info["total_gb"] = total_b.value / (1024 ** 3)
-        info["free_gb"] = free_b.value / (1024 ** 3)
+        # 2. GetVolumeInformationW
+        vol_buf = ctypes.create_unicode_buffer(1024)
+        fs_buf = ctypes.create_unicode_buffer(1024)
+        res_vol = ctypes.windll.kernel32.GetVolumeInformationW(
+            drive_letter, vol_buf, 1024, None, None, None, fs_buf, 1024
+        )
+        if res_vol:
+            info["volume_name"] = vol_buf.value or "[无卷标]"
+            info["file_system"] = fs_buf.value or "未知"
+
+        # 3. GetDiskFreeSpaceExW
+        free_b = ctypes.c_ulonglong(0)
+        total_b = ctypes.c_ulonglong(0)
+        res_space = ctypes.windll.kernel32.GetDiskFreeSpaceExW(
+            drive_letter, None, ctypes.byref(total_b), ctypes.byref(free_b)
+        )
+        if res_space:
+            info["total_gb"] = total_b.value / (1024 ** 3)
+            info["free_gb"] = free_b.value / (1024 ** 3)
 
     # 4. K230 SD Signature Check
     sd_dir = os.path.join(drive_letter, "sharefs", "sdcard")
@@ -229,6 +230,15 @@ def deploy_to_sd(target_drive: str = None, pack_dir: str = "deploy_pack", auto_c
                 "has_k230_signature": os.path.exists(os.path.join(target_drive, "sharefs")),
                 "warning": None,
             }
+
+    # 硬性安全阻断检查（无论 auto_confirm 为何值）
+    if sys.platform == "win32":
+        t_drive = target_drive[:2].upper()
+        proj_drive = os.path.abspath(PROJECT_ROOT)[:2].upper()
+        if t_drive == "C:":
+            raise RuntimeError(f"安全阻断：绝对禁止向系统主盘 ({target_drive}) 写入！")
+        if t_drive == proj_drive:
+            raise RuntimeError(f"安全阻断：绝对禁止向当前工程根目录所在盘符 ({target_drive}) 写入！")
 
     # 确定板端目标写入路径 (优先放入 sharefs/sdcard/，如无则放根目录)
     sd_sharefs = os.path.join(target_drive, "sharefs", "sdcard")

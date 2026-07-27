@@ -17,6 +17,7 @@ K230 数据集格式预检校验器 (tools/check_dataset.py)
 import argparse
 import io
 import os
+import re
 import sys
 import yaml
 
@@ -33,13 +34,13 @@ def resolve_dataset_path(path_str: str, yaml_dir: str) -> str:
         return ""
     if os.path.isabs(path_str):
         return path_str
-    # 优先尝试从工程根目录解析
-    p1 = os.path.abspath(os.path.join(PROJECT_ROOT, path_str))
-    if os.path.exists(p1):
-        return p1
-    # 尝试相对 YAML 目录解析
+    # 优先尝试相对 YAML 目录解析（如 configs/../datasets/xxx -> datasets/xxx）
     p2 = os.path.abspath(os.path.join(yaml_dir, path_str))
-    return p2 if os.path.exists(p2) else p1
+    if os.path.exists(p2):
+        return p2
+    # 尝试从工程根目录解析
+    p1 = os.path.abspath(os.path.join(PROJECT_ROOT, path_str))
+    return p1 if os.path.exists(p1) else p2
 
 
 def check_dataset(yaml_path: str, max_check_samples: int = 100):
@@ -91,6 +92,9 @@ def check_dataset(yaml_path: str, max_check_samples: int = 100):
     print(f"[INFO] 训练集路径: {train_abs} ({'存在' if os.path.exists(train_abs) else '未建路径'})")
     print(f"[INFO] 验证集路径: {val_abs} ({'存在' if os.path.exists(val_abs) else '未建路径'})")
 
+    if train_abs and val_abs and train_abs == val_abs:
+        print("[WARNING] 训练集与验证集路径完全相同，请注意可能导致数据泄露")
+
     target_dir = train_abs if os.path.exists(train_abs) else (val_abs if os.path.exists(val_abs) else "")
     if not target_dir:
         print("[WARNING] 未找到实际存在的数据集图片目录，训练时将尝试依赖 Ultralytics 自动下载/解压。")
@@ -116,7 +120,7 @@ def check_dataset(yaml_path: str, max_check_samples: int = 100):
 
     for img_p in img_files:
         # 寻找对应的 .txt 标签文件 (如 images/train/xxx.jpg -> labels/train/xxx.txt)
-        txt_p = img_p.replace("images", "labels")
+        txt_p = re.sub(r'([/\\])images([/\\])', r'\1labels\2', img_p)
         txt_p = os.path.splitext(txt_p)[0] + ".txt"
 
         if not os.path.exists(txt_p):

@@ -16,6 +16,8 @@ import time
 import os
 import sys
 import socket
+import select
+import gc
 
 # 尝试导入 CanMV 板级硬件与网络 API
 try:
@@ -95,8 +97,8 @@ def start_mjpeg_web_server(ip, port=8080):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(('0.0.0.0', port))
-    s.listen(2)
-    s.settimeout(0.5)
+    s.listen(5)
+    s.setblocking(False) # 设置为非阻塞模式，支持多客户端
 
     print("\n" + "=" * 50)
     print(f" 🌐 K230 Web 实时 AI 视频流服务已就绪!")
@@ -166,55 +168,96 @@ def main():
 
     # 4. 开启 HTTP Socket
     server_socket = start_mjpeg_web_server(ip_addr, WEB_PORT)
+    
+    # 使用 select.poll 实现非阻塞多客户端并发
+    poller = select.poll()
+    poller.register(server_socket, select.POLLIN)
+    
+    clients = []
 
     try:
         while True:
-            try:
-                cl, addr = server_socket.accept()
-                print(f"[NET] 收到浏览器客户端连接: {addr}")
+            # 捕获一帧图像并推理
+            img = Camera.snapshot()
+            kpu.set_input_tensor(0, img)
+            kpu.run()
+            
+            # 检查网络事件，超时 5ms
+            events = poller.poll(5)
+            for fd, event in events:
+                if fd == server_socket.fileno():
+                    try:
+                        cl, addr = server_socket.accept()
+                        cl.setblocking(False)
+                        print(f"[NET] 收到浏览器客户端连接: {addr}")
+                        clients.append({'socket': cl, 'addr': addr, 'stream': False})
+                        poller.register(cl, select.POLLIN)
+                    except Exception:
+                        pass
+                else:
+                    # 查找对应客户端
+                    client = next((c for c in clients if c['socket'].fileno() == fd), None)
+                    if client and (event & select.POLLIN):
+                        try:
+                            req = client['socket'].recv(512).decode('utf-8', 'ignore')
+                            if not req:
+                                raise Exception("Client disconnected")
+                            if "GET /stream" in req:
+                                header = (
+                                    "HTTP/1.0 200 OK\r\n"
+                                    "Server: K230-WebStreamer\r\n"
+                                    "Connection: keep-alive\r\n"
+                                    "Max-Age: 0\r\n"
+                                    "Expires: 0\r\n"
+                                    "Cache-Control: no-store, no-cache, must-revalidate\r\n"
+                                    "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n"
+                                )
+                                client['socket'].send(header.encode('utf-8'))
+                                client['stream'] = True
+                            else:
+                                html_bytes = HTML_DASHBOARD.encode('utf-8')
+                                response_header = (
+                                    "HTTP/1.0 200 OK\r\n"
+                                    "Content-Type: text/html; charset=utf-8\r\n"
+                                    f"Content-Length: {len(html_bytes)}\r\n"
+                                    "Connection: close\r\n\r\n"
+                                )
+                                client['socket'].send(response_header.encode('utf-8'))
+                                client['socket'].send(html_bytes)
+                                raise Exception("Dashboard sent")
+                        except Exception:
+                            poller.unregister(client['socket'])
+                            client['socket'].close()
+                            clients.remove(client)
+                            print(f"[NET] 客户端连接断开: {client['addr']}")
+                    elif client and (event & (select.POLLERR | select.POLLHUP)):
+                        poller.unregister(client['socket'])
+                        client['socket'].close()
+                        clients.remove(client)
+                        print(f"[NET] 客户端连接异常断开: {client['addr']}")
+            
+            # 向所有订阅视频流的客户端推送最新帧
+            if any(c['stream'] for c in clients):
                 try:
-                    req = cl.recv(512).decode('utf-8', 'ignore')
-                    if "GET /stream" in req:
-                        # 发送 HTTP MJPEG 头信息
-                        header = (
-                            "HTTP/1.0 200 OK\r\n"
-                            "Server: K230-WebStreamer\r\n"
-                            "Connection: close\r\n"
-                            "Max-Age: 0\r\n"
-                            "Expires: 0\r\n"
-                            "Cache-Control: no-store, no-cache, must-revalidate\r\n"
-                            "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n"
-                        )
-                        cl.send(header.encode('utf-8'))
-
-                        # 持续推送 JPEG 帧
-                        while True:
-                            img = Camera.snapshot()
-                            kpu.set_input_tensor(0, img)
-                            kpu.run()
-                            jpg_bytes = img.compress(quality=85)
-                            frame_header = f"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {len(jpg_bytes)}\r\n\r\n"
-                            cl.send(frame_header.encode('utf-8'))
-                            cl.send(jpg_bytes)
-                            cl.send(b"\r\n")
-                    else:
-                        # 返回高颜值 HTML Dashboard 页面
-                        html_bytes = HTML_DASHBOARD.encode('utf-8')
-                        response_header = (
-                            "HTTP/1.0 200 OK\r\n"
-                            "Content-Type: text/html; charset=utf-8\r\n"
-                            f"Content-Length: {len(html_bytes)}\r\n"
-                            "Connection: close\r\n\r\n"
-                        )
-                        cl.send(response_header.encode('utf-8'))
-                        cl.send(html_bytes)
-                except Exception as client_err:
-                    print(f"[NET] 客户端连接完成或断开: {client_err}")
-                finally:
-                    cl.close()
-            except OSError:
-                # accept 超时，继续抓帧循环
-                pass
+                    jpg_bytes = img.compress(quality=85)
+                    frame_header = f"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {len(jpg_bytes)}\r\n\r\n".encode('utf-8')
+                    
+                    for client in list(clients):
+                        if client['stream']:
+                            try:
+                                client['socket'].send(frame_header)
+                                client['socket'].send(jpg_bytes)
+                                client['socket'].send(b"\r\n")
+                            except Exception:
+                                poller.unregister(client['socket'])
+                                client['socket'].close()
+                                clients.remove(client)
+                                print(f"[NET] 客户端流推送失败，断开: {client['addr']}")
+                except Exception:
+                    pass
+            
+            # 显式回收内存，解决堆碎片化与废弃引用积累
+            gc.collect()
 
     except KeyboardInterrupt:
         print("[INFO] 退出串流程序")
@@ -222,6 +265,11 @@ def main():
         Camera.stop_stream()
         MediaManager.deinit()
         server_socket.close()
+        for client in clients:
+            try:
+                client['socket'].close()
+            except:
+                pass
 
 
 if __name__ == "__main__":

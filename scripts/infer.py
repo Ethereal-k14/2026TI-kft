@@ -21,7 +21,7 @@ def parse_args():
     p.add_argument("--conf", type=float, default=0.35, help="置信度阈值（K230 默认 0.35）")
     p.add_argument("--iou", type=float, default=0.65, help="NMS IOU 阈值（K230 默认 0.65）")
     p.add_argument("--device", default="")
-    p.add_argument("--save", action="store_true", default=True)
+    p.add_argument("--save", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--project", default="weights/predict")
     p.add_argument("--name", default="exp")
     p.add_argument("--task", default="detect",

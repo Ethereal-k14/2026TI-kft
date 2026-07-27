@@ -40,7 +40,7 @@ def main():
     print(f"[INFO] ONNX 导出成功: {path}")
 
     target_path = path
-    if a.out and a.out != path:
+    if a.out and os.path.abspath(a.out) != os.path.abspath(path):
         # 用 copy2 而非 move：move 会触发 workbuddy 安全删除沙箱（回收站不可用）而失败
         import shutil
         shutil.copy2(path, a.out)

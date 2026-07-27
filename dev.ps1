@@ -1,4 +1,6 @@
 #!/usr/bin/env pwsh
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 <#
 .SYNOPSIS
     K230 工程开发快捷命令集
@@ -23,7 +25,11 @@ param(
     [Parameter(Position=2)]
     [string]$Arg2 = "",
     [Parameter(Position=3)]
-    [string]$Arg3 = ""
+    [string]$Arg3 = "",
+    [Parameter(Position=4)]
+    [string]$Arg4 = "",
+    [Parameter(ValueFromRemainingArguments=$true)]
+    [string[]]$RestArgs
 )
 
 Set-Location $PSScriptRoot
@@ -36,8 +42,8 @@ if (-not (Test-Path $PY)) {
 }
 
 function Run-Py {
-    param([string[]]$Args)
-    & $PY @Args
+    param([string[]]$PyArgs)
+    & $PY @PyArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
@@ -141,9 +147,13 @@ switch ($Command.ToLower()) {
     }
 
     "track" {
-        if (-not $Arg1 -or -not $Arg2) { Write-Error "用法: .\dev.ps1 track <source> <weights.pt>"; exit 1 }
-        Write-Host "追踪: source=$Arg1 weights=$Arg2" -ForegroundColor Magenta
-        Run-Py "scripts/track.py", "--source", $Arg1, "--weights", $Arg2, "--tracker", "botsort"
+        if (-not $Arg1 -or -not $Arg2) { Write-Error "用法: .\dev.ps1 track <source> <weights.pt> [tracker=botsort]"; exit 1 }
+        $tracker = if ($Arg3) { $Arg3 } else { "botsort" }
+        Write-Host "追踪: source=$Arg1 weights=$Arg2 tracker=$tracker" -ForegroundColor Magenta
+        $cmdArgs = @("scripts/track.py", "--source", $Arg1, "--weights", $Arg2, "--tracker", $tracker)
+        if ($Arg4) { $cmdArgs += $Arg4 }
+        if ($RestArgs) { $cmdArgs += $RestArgs }
+        Run-Py $cmdArgs
     }
 
     "export" {
@@ -171,10 +181,13 @@ switch ($Command.ToLower()) {
     }
 
     "pack" {
-        if (-not $Arg1 -or -not $Arg2) { Write-Error "用法: .\dev.ps1 pack <model.kmodel> <data.yaml> [task=detect]"; exit 1 }
-        $task = if ($Arg3) { $Arg3 } else { "detect" }
-        Write-Host "打包部署包: model=$Arg1 data=$Arg2 task=$task" -ForegroundColor Blue
-        Run-Py "tools/generate_deploy_pack.py", "--model", $Arg1, "--data", $Arg2, "--task", $task, "--imgsz", "320"
+        if (-not $Arg1 -or -not $Arg2) { Write-Error "用法: .\dev.ps1 pack <model.kmodel> <data.yaml> [task=detect] [imgsz=320]"; exit 1 }
+        $task  = if ($Arg3) { $Arg3 } else { "detect" }
+        $imgsz = if ($Arg4) { $Arg4 } else { "320" }
+        Write-Host "打包部署包: model=$Arg1 data=$Arg2 task=$task imgsz=$imgsz" -ForegroundColor Blue
+        $cmdArgs = @("tools/generate_deploy_pack.py", "--model", $Arg1, "--data", $Arg2, "--task", $task, "--imgsz", $imgsz)
+        if ($RestArgs) { $cmdArgs += $RestArgs }
+        Run-Py $cmdArgs
     }
 
     "menu" { Run-Py "tools/k230.py" }
@@ -197,7 +210,7 @@ switch ($Command.ToLower()) {
         if (-not $Arg1) { Write-Error "用法: .\dev.ps1 pipeline <data.yaml> [epochs=10] [imgsz=320] [task=detect]"; exit 1 }
         $epochs = if ($Arg2) { $Arg2 } else { "10" }
         $imgsz  = if ($Arg3) { $Arg3 } else { "320" }
-        $task   = if ($PSBoundParameters.ContainsKey('Arg4')) { $Arg4 } else { "detect" }
+        $task   = if ($Arg4) { $Arg4 } else { "detect" }
         Write-Host "运行一键闭环管线: data=$Arg1 epochs=$epochs imgsz=$imgsz task=$task" -ForegroundColor Yellow
         Run-Py "tools/pipeline.py", "--data", $Arg1, "--epochs", $epochs, "--imgsz", $imgsz, "--task", $task
     }

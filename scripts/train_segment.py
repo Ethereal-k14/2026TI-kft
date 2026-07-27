@@ -33,6 +33,7 @@ def main():
         data=a.data, epochs=a.epochs, imgsz=a.imgsz, batch=a.batch,
         device=resolve_device(a.device), workers=a.workers, patience=a.patience,
         project=a.project, name=a.name, rect=False, cos_lr=True, amp=True,
+        close_mosaic=10,
     )
 
     best = f"{a.project}/{a.name}/weights/best.pt"
