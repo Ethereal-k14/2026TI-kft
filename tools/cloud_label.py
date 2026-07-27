@@ -289,12 +289,12 @@ def main():
 
     img_dir    = Path(a.images)
     out_dir    = Path(a.output)
-    label_dir  = out_dir / "labels"
+    label_dir = out_dir / "labels"
     review_dir = out_dir / "review_labels"
-    img_out    = out_dir / "images"
-
-    for d in (label_dir, review_dir, img_out):
-        d.mkdir(parents=True, exist_ok=True)
+    img_dir_dst = out_dir / "images"
+    label_dir.mkdir(parents=True, exist_ok=True)
+    review_dir.mkdir(parents=True, exist_ok=True)
+    img_dir_dst.mkdir(parents=True, exist_ok=True)
 
     class_names = a.classes
     system_prompt = build_system_prompt(class_names)
@@ -366,6 +366,10 @@ def main():
                 needs_review = True
                 is_confident = False
 
+        img_dst = img_dir_dst / img_path.name
+        if not img_dst.exists():
+            shutil.copy(img_path, img_dst)
+
         save_path = label_rev if needs_review else label_ok
         save_path.write_text("\n".join(yolo_lines), encoding="utf-8")
 
@@ -381,17 +385,28 @@ def main():
         elif a.provider == 'gemini':
             time.sleep(4)
 
+    # 自动生成 data.yaml 配置文件
+    yaml_path = out_dir / "data.yaml"
+    names_dict = {i: name for i, name in enumerate(class_names)}
+    yaml_content = f"""path: {out_dir.resolve().as_posix()}
+train: labels
+val: labels
+names:
+{yaml.dump(names_dict, sort_keys=False).strip()}
+"""
+    yaml_path.write_text(yaml_content, encoding="utf-8")
+
     print()
     print("=" * 50)
     print(f" 完成！处理 {ok} 张  跳过(已标) {skip} 张  失败 {fail} 张")
     print(f" 高置信度标注 → {label_dir}")
     print(f" 低置信度复检 → {review_dir}")
+    print(f" 配置文件生成 → {yaml_path}")
     print("=" * 50)
     print()
     print("下一步：")
-    print(f"  1. 用 X-AnyLabeling 打开 {review_dir} 目录进行人工复检")
-    print(f"  2. python tools/check_dataset.py --data {out_dir}")
-    print(f"  3. 修改 configs/your_dataset.yaml 后开始训练")
+    print(f"  1. 运行校验：python tools/check_dataset.py --data {yaml_path}")
+    print(f"  2. 启动训练：python scripts/train_detect.py --data {yaml_path} --epochs 5 --imgsz 320")
 
 
 if __name__ == "__main__":
