@@ -38,6 +38,8 @@ k230-project/
 │   ├── canmv_k230_web_streamer.py # Web 端口局域网实时画框视频流
 │   └── k230_cpp_runner.sh  # Linux C++ (yolo.elf) 启动脚本
 ├── tools/                  # 开发工具链
+│   ├── cloud_label.py      # 多模态 AI 云端自动打标 (StepFun step-3.7-flash / Qwen / Gemini)
+│   ├── check_dataset.py    # YOLO11 数据集完整性与规范性诊断预检
 │   ├── verify_env.py       # 一键全流程环境校验（训练→推理→导出）
 │   ├── audit_workspace.py  # 工作区 7 维完整性审计
 │   ├── generate_deploy_pack.py # 一键构建 K230 板端部署包
@@ -89,7 +91,37 @@ uv run python scripts/track.py --source video.mp4 --weights weights/best.pt --tr
 > 若要在一台纯 CPU 机器上复用本工程，把 `pyproject.toml` 的索引改回
 > `https://download.pytorch.org/whl/cpu` 即可。
 
-## 3. 为什么选 YOLO11n（以及 YOLOv8n）
+## 3. 云端 AI 视觉大模型自动打标 (StepFun / Qwen / Gemini)
+
+对于缺乏标注数据或需要快速构建工业缺陷/特定目标检测数据集的场景，本工程提供了 `tools/cloud_label.py` 支持调用全模态视觉大模型（如阶跃星辰 **`step-3.7-flash`**）自动生成 YOLO11 标准格式的标注。
+
+### 3.1 秘钥安全隔离配置 (Git 免跟踪)
+项目根目录下的 `configs/api_keys.json` 被设置为敏感文件，**已被 `.gitignore` 过滤，永远不会提交至 Git 仓库**：
+```json
+{
+  "stepfun_api_key": "YOUR_STEPFUN_API_KEY",
+  "qwen_api_key": "",
+  "gemini_api_key": ""
+}
+```
+
+### 3.2 一键自动打标与 YOLO11 训练闭环
+```bash
+# 1. 启动云端大模型自动打标 (自动从 configs/api_keys.json 读取密钥，支持 Step Plan 节点)
+uv run python tools/cloud_label.py \
+  --images datasets/my_raw_images \
+  --output datasets/my_yolo11_dataset \
+  --classes defect pitted_surface scratch \
+  --provider stepfun
+
+# 2. 预检自动生成的数据集 (校验 BBox 边界框、归一化浮点数与目录合法性)
+uv run python tools/check_dataset.py --data datasets/my_yolo11_dataset/data.yaml
+
+# 3. 启动 YOLO11 目标检测训练
+uv run python scripts/train_detect.py --data datasets/my_yolo11_dataset/data.yaml --epochs 50 --imgsz 320
+```
+
+## 4. 为什么选 YOLO11n（以及 YOLOv8n）
 
 | 模型 | 参数量 | 输入 | COCO mAP | K230 适用性 |
 |------|--------|------|----------|-------------|
