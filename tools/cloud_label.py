@@ -125,8 +125,14 @@ def call_stepfun(api_key: str, b64: str, system_prompt: str, user_text: str, mod
                 resp = client.chat.completions.create(**extra_params)
 
             raw = resp.choices[0].message.content.strip()
-            raw = raw.removeprefix('```json').removeprefix('```').removesuffix('```').strip()
-            data = json.loads(raw)
+            # 使用正则截取完整的 JSON 结构
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                raw_json = match.group(0)
+                data = json.loads(raw_json)
+            else:
+                raw_clean = raw.removeprefix('```json').removeprefix('```').removesuffix('```').strip()
+                data = json.loads(raw_clean)
 
             # 坐标自适应检查：如果坐标属于 0~1000 整数刻度，归一化到 0~1
             for obj in data.get("objects", []):
