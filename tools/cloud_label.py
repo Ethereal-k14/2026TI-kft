@@ -395,6 +395,7 @@ def main():
         objects = result.get("objects", [])
         yolo_lines = []
         needs_review = False
+        is_confident = True
 
         for obj in objects:
             cid  = obj.get("class_id")

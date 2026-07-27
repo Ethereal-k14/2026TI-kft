@@ -12,6 +12,7 @@
     uv run python scripts/export_onnx.py --weights best.pt --imgsz 320 --out weights/best_320.onnx
 """
 import argparse
+import os
 import sys
 
 from ultralytics import YOLO
