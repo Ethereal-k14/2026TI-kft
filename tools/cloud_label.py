@@ -1,13 +1,20 @@
 """
 tools/cloud_label.py — 云端视觉 API 辅助打标工具
-支持 Qwen3-VL（阿里云百炼，国内无代理）和 Gemini 2.5 Flash（Google，海外免费）
+支持三大 Provider（均无需本地 GPU）：
+  - stepfun  : 阶跃星辰 step-3.7-flash（全模态，无代理，国内首选）
+  - qwen     : 阿里云百炼 Qwen3-VL（无代理，性价比极高）
+  - gemini   : Google Gemini 2.5 Flash（海外 / Google AI Studio 免费额度）
 
 用法:
-  # 国内首选（无代理）
+  # 阶跃星辰（用户自提供 API Key）
+  python tools/cloud_label.py --images datasets/raw --classes person car \
+      --provider stepfun --api-key YOUR_STEPFUN_KEY
+
+  # 阿里云百炼（无代理）
   python tools/cloud_label.py --images datasets/raw --classes person car \
       --provider qwen --api-key YOUR_DASHSCOPE_KEY
 
-  # 海外/免费（Google AI Studio 免费额度）
+  # Google Gemini（海外免费）
   python tools/cloud_label.py --images datasets/raw --classes person car \
       --provider gemini --api-key YOUR_GEMINI_KEY
 """
@@ -27,7 +34,7 @@ except ImportError:
     sys.exit("[ERROR] 请先安装 Pillow: pip install Pillow")
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-MAX_SIDE = 1024          # 压缩长边，节省 token
+MAX_SIDE = 1024          # 压缩长边，节省 token（StepFun 上限 2048，Gemini/Qwen 建议 1024）
 CONFIDENCE_THRESHOLD = 0.72
 MAX_RETRIES = 3
 
@@ -71,6 +78,67 @@ def encode_image(image_path: Path) -> tuple[str, int, int]:
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=85)
         return base64.b64encode(buf.getvalue()).decode(), orig_w, orig_h
+
+
+# ---------------------------------------------------------------------------
+# API 调用：StepFun step-3.7-flash（OpenAI 兼容接口）
+# ---------------------------------------------------------------------------
+
+def call_stepfun(api_key: str, b64: str, system_prompt: str, user_text: str, model_name: str = "step-3.7-flash") -> dict | None:
+    """调用阶跃星辰 step-3.7-flash 全模态模型。
+    Base URL: https://api.stepfun.com/v1  （注意是 .com 不是 .ai）
+    完全兼容 OpenAI SDK，建议使用 0~1000 整数刻度归一化，精度与稳定性最高。
+    """
+    try:
+        from openai import OpenAI
+    except ImportError:
+        sys.exit('[ERROR] 请先安装 openai: pip install openai')
+
+    client = OpenAI(api_key=api_key, base_url='https://api.stepfun.com/v1')
+
+    # StepFun 专用的 0-1000 刻度强化 System Prompt
+    stepfun_system_prompt = system_prompt + "\n注：边界框坐标可以使用 0~1000 的整数归一化刻度 [xmin, ymin, xmax, ymax]。"
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            extra_params = {
+                "model": model_name,
+                "response_format": {'type': 'json_object'},
+                "temperature": 0.05,
+                "messages": [
+                    {'role': 'system', 'content': stepfun_system_prompt},
+                    {'role': 'user', 'content': [
+                        {'type': 'text', 'text': user_text},
+                        {'type': 'image_url', 'image_url': {
+                            'url': f'data:image/jpeg;base64,{b64}'
+                        }},
+                    ]},
+                ],
+            }
+            # 开启 StepFun Thinking 推理增强模式（若模型支持）
+            try:
+                extra_params["extra_body"] = {"enable_thinking": True}
+                resp = client.chat.completions.create(**extra_params)
+            except Exception:
+                # 兼容不带 extra_body 的调用
+                extra_params.pop("extra_body", None)
+                resp = client.chat.completions.create(**extra_params)
+
+            raw = resp.choices[0].message.content.strip()
+            raw = raw.removeprefix('```json').removeprefix('```').removesuffix('```').strip()
+            data = json.loads(raw)
+
+            # 坐标自适应检查：如果坐标属于 0~1000 整数刻度，归一化到 0~1
+            for obj in data.get("objects", []):
+                b = obj.get("bbox", [])
+                if len(b) == 4 and max(b) > 1.5:
+                    obj["bbox"] = [b[0] / 1000.0, b[1] / 1000.0, b[2] / 1000.0, b[3] / 1000.0]
+
+            return data
+        except Exception as e:
+            print(f'  [StepFun] 第{attempt+1}次失败: {e}')
+            time.sleep(2 ** attempt)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -197,16 +265,26 @@ def to_yolo(xmin: float, ymin: float, xmax: float, ymax: float) -> tuple:
 # ---------------------------------------------------------------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="云端视觉 API 辅助打标工具（Qwen3-VL / Gemini 2.5 Flash）")
-    ap.add_argument("--images",   required=True,  help="原始图片目录")
-    ap.add_argument("--output",   default="datasets/auto_labeled", help="输出目录（默认 datasets/auto_labeled）")
-    ap.add_argument("--classes",  required=True,  nargs="+", help="类别列表，顺序即 class_id（0开始）")
-    ap.add_argument("--provider", choices=["qwen", "gemini"], default="qwen", help="API 提供商")
-    ap.add_argument("--api-key",  required=True,  help="API Key")
-    ap.add_argument("--confidence", type=float, default=CONFIDENCE_THRESHOLD,
-                    help=f"置信度阈值（低于此值进入 review_labels，默认 {CONFIDENCE_THRESHOLD}）")
-    ap.add_argument("--model",    default=None,
-                    help="覆盖默认模型名（Qwen: qwen-vl-max/qwen-vl-plus；Gemini: gemini-2.5-flash/pro）")
+    ap = argparse.ArgumentParser(
+        description='云端视觉 API 辅助打标工具（StepFun step-3.7-flash / Qwen3-VL / Gemini 2.5 Flash）',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            '示例:\n'
+            '  stepfun: python tools/cloud_label.py --images datasets/raw --classes person car --provider stepfun --api-key KEY\n'
+            '  qwen:    python tools/cloud_label.py --images datasets/raw --classes person car --provider qwen    --api-key KEY\n'
+            '  gemini:  python tools/cloud_label.py --images datasets/raw --classes person car --provider gemini  --api-key KEY\n'
+        ),
+    )
+    ap.add_argument('--images',   required=True,  help='原始图片目录')
+    ap.add_argument('--output',   default='datasets/auto_labeled', help='输出目录（默认 datasets/auto_labeled）')
+    ap.add_argument('--classes',  required=True,  nargs='+', help='类别列表，顺序即 class_id（0开始）')
+    ap.add_argument('--provider', choices=['stepfun', 'qwen', 'gemini'], default='stepfun',
+                    help='API 提供商：stepfun（阶跃星辰）/ qwen（阿里云）/ gemini（Google）')
+    ap.add_argument('--api-key',  required=True,  help='API Key')
+    ap.add_argument('--confidence', type=float, default=CONFIDENCE_THRESHOLD,
+                    help=f'置信度阈值（低于此值进入 review_labels，默认 {CONFIDENCE_THRESHOLD}）')
+    ap.add_argument('--model',    default=None,
+                    help='覆盖默认模型名（StepFun: step-3.7-flash；Qwen: qwen-vl-max；Gemini: gemini-2.5-flash）')
     a = ap.parse_args()
 
     img_dir    = Path(a.images)
@@ -251,13 +329,15 @@ def main():
             fail += 1
             continue
 
-        if a.provider == "qwen":
+        if a.provider == 'stepfun':
+            result = call_stepfun(a.api_key, b64, system_prompt, user_text, model_name=a.model or "step-3.7-flash")
+        elif a.provider == 'qwen':
             result = call_qwen(a.api_key, b64, system_prompt, user_text)
         else:
             result = call_gemini(a.api_key, b64, system_prompt, user_text)
 
         if result is None:
-            print("API 失败，跳过")
+            print('API 失败，跳过')
             fail += 1
             continue
 
@@ -292,8 +372,12 @@ def main():
         print(f"{tag}  {len(yolo_lines)} 个目标")
         ok += 1
 
-        # 礼貌性限流：Gemini 免费 15 RPM，间隔 4 秒
-        if a.provider == "gemini":
+        # 礼貌性限流
+        # StepFun V0（免费/未充值）: 10 RPM → 间隔 6s；充值后可去掉
+        # Gemini AI Studio 免费: 15 RPM → 间隔 4s
+        if a.provider == 'stepfun':
+            time.sleep(6)
+        elif a.provider == 'gemini':
             time.sleep(4)
 
     print()
