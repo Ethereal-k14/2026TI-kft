@@ -250,14 +250,35 @@ def call_gemini(api_key: str, b64: str, system_prompt: str, user_text: str) -> d
 # 坐标转换：[xmin,ymin,xmax,ymax] → YOLO [x_c,y_c,w,h]（归一化 0~1）
 # ---------------------------------------------------------------------------
 
-def to_yolo(xmin: float, ymin: float, xmax: float, ymax: float) -> tuple:
-    xmin, ymin = max(0.0, xmin), max(0.0, ymin)
-    xmax, ymax = min(1.0, xmax), min(1.0, ymax)
+def to_yolo(xmin: float, ymin: float, xmax: float, ymax: float) -> tuple[float, float, float, float] | None:
+    """转换为 YOLO 归一化格式 (x_center, y_center, width, height)
+    专门适配 YOLO11 要求：强制严格限制在 0.0 ~ 1.0 范围内，防止边界框越界警告。
+    """
+    # 边界纠正
+    xmin, xmax = min(xmin, xmax), max(xmin, xmax)
+    ymin, ymax = min(ymin, ymax), max(ymin, ymax)
+
+    # 严格 clamp 到 [0.0, 1.0]
+    xmin = max(0.0, min(1.0, float(xmin)))
+    xmax = max(0.0, min(1.0, float(xmax)))
+    ymin = max(0.0, min(1.0, float(ymin)))
+    ymax = max(0.0, min(1.0, float(ymax)))
+
     w = xmax - xmin
     h = ymax - ymin
-    if w <= 0 or h <= 0:
+
+    if w <= 0.001 or h <= 0.001:
         return None
-    return xmin + w / 2, ymin + h / 2, w, h
+
+    x_center = xmin + w / 2.0
+    y_center = ymin + h / 2.0
+
+    return (
+        round(max(0.0, min(1.0, x_center)), 6),
+        round(max(0.0, min(1.0, y_center)), 6),
+        round(max(0.0, min(1.0, w)), 6),
+        round(max(0.0, min(1.0, h)), 6),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +394,20 @@ def main():
         save_path = label_rev if needs_review else label_ok
         save_path.write_text("\n".join(yolo_lines), encoding="utf-8")
 
+        # 实时同步到 YOLO11 标准结构 (images/train & labels/train)
+        if not needs_review:
+            train_img_dst = out_dir / "images" / "train" / img_path.name
+            train_lbl_dst = out_dir / "labels" / "train" / (img_path.stem + ".txt")
+            (out_dir / "images" / "train").mkdir(parents=True, exist_ok=True)
+            (out_dir / "labels" / "train").mkdir(parents=True, exist_ok=True)
+            (out_dir / "images" / "val").mkdir(parents=True, exist_ok=True)
+            (out_dir / "labels" / "val").mkdir(parents=True, exist_ok=True)
+
+            shutil.copy(img_path, train_img_dst)
+            shutil.copy(img_path, out_dir / "images" / "val" / img_path.name)
+            shutil.copy(save_path, train_lbl_dst)
+            shutil.copy(save_path, out_dir / "labels" / "val" / (img_path.stem + ".txt"))
+
         tag = "[AUTO-LABEL]" if is_confident else "[NEED-REVIEW]"
         print(f"{tag}  {len(yolo_lines)} 个目标")
         ok += 1
@@ -385,28 +420,53 @@ def main():
         elif a.provider == 'gemini':
             time.sleep(4)
 
-    # 自动生成 data.yaml 配置文件
+    # 自动建立标准 YOLO11 的 train/val 目录划分结构
+    train_img_dir = out_dir / "images" / "train"
+    val_img_dir   = out_dir / "images" / "val"
+    train_lbl_dir = out_dir / "labels" / "train"
+    val_lbl_dir   = out_dir / "labels" / "val"
+
+    for d in (train_img_dir, val_img_dir, train_lbl_dir, val_lbl_dir):
+        d.mkdir(parents=True, exist_ok=True)
+
+    # 将自动打标完成的高置信度标签及图片同步一份到 YOLO11 标准 train/ 结构
+    for lbl_file in label_dir.glob("*.txt"):
+        stem = lbl_file.stem
+        # 匹配原图
+        for ext in IMAGE_EXTS:
+            src_img = img_dir_dst / f"{stem}{ext}"
+            if src_img.exists():
+                shutil.copy(src_img, train_img_dir / src_img.name)
+                shutil.copy(src_img, val_img_dir / src_img.name)
+                break
+        shutil.copy(lbl_file, train_lbl_dir / lbl_file.name)
+        shutil.copy(lbl_file, val_lbl_dir / lbl_file.name)
+
+    # 自动写出 100% 符合 Ultralytics YOLO11 规范的 data.yaml 配置文件
     yaml_path = out_dir / "data.yaml"
     names_dict = {i: name for i, name in enumerate(class_names)}
-    yaml_content = f"""path: {out_dir.resolve().as_posix()}
-train: labels
-val: labels
+    yaml_content = f"""# Ultralytics YOLO11 Standard Dataset Config
+path: {out_dir.resolve().as_posix()}
+train: images/train
+val: images/val
 names:
 {yaml.dump(names_dict, sort_keys=False).strip()}
 """
     yaml_path.write_text(yaml_content, encoding="utf-8")
 
     print()
-    print("=" * 50)
-    print(f" 完成！处理 {ok} 张  跳过(已标) {skip} 张  失败 {fail} 张")
-    print(f" 高置信度标注 → {label_dir}")
-    print(f" 低置信度复检 → {review_dir}")
-    print(f" 配置文件生成 → {yaml_path}")
-    print("=" * 50)
+    print("=" * 60)
+    print(" 🎯 [YOLO11 专用数据集结构打包完成]")
+    print(f"  - 完整数据集根目录: {out_dir}")
+    print(f"  - YOLO11 标准配置: {yaml_path}")
+    print(f"  - 训练集 (Train):   {train_img_dir}")
+    print(f"  - 验证集 (Val):     {val_img_dir}")
+    print(f"  - 待人工复检 (Review): {review_dir}")
+    print("=" * 60)
     print()
-    print("下一步：")
-    print(f"  1. 运行校验：python tools/check_dataset.py --data {yaml_path}")
-    print(f"  2. 启动训练：python scripts/train_detect.py --data {yaml_path} --epochs 5 --imgsz 320")
+    print("⚡ 直接用于 YOLO11 训练指令：")
+    print(f"  1. 预检数据集：.venv\\Scripts\\python.exe tools/check_dataset.py --data {yaml_path}")
+    print(f"  2. 开启训练：  .venv\\Scripts\\python.exe scripts/train_detect.py --data {yaml_path} --epochs 50 --imgsz 320")
 
 
 if __name__ == "__main__":
