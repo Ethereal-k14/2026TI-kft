@@ -92,6 +92,10 @@ def cmd_test_pipeline():
     run_cmd(["tools/test_full_pipeline.py"])
 
 
+def cmd_strict_check():
+    run_cmd(["tools/strict_high_precision_check.py"])
+
+
 def cmd_sd_deploy(args):
     cmd = ["tools/deploy_sd.py"]
     if args.drive:
@@ -282,6 +286,9 @@ def main():
     # test-pipeline
     sub.add_parser("test-pipeline", help="端到端打标+校验+训练全流程一键集成测试 (tools/test_full_pipeline.py)")
 
+    # strict-check
+    sub.add_parser("strict-check", help="🔬 工业级高精度、高标准严密综合校验 (tools/strict_high_precision_check.py)")
+
     # sd-deploy
     p_sd = sub.add_parser("sd-deploy", help="智能识别盘符并一键部署到 SD 卡")
     p_sd.add_argument("--drive", default=None, help="显式指定目标盘符 (如 E:\\)")
@@ -359,6 +366,7 @@ def main():
         "check-data": lambda: cmd_check_data(args),
         "cloud-label": lambda: cmd_label(args),
         "test-pipeline": cmd_test_pipeline,
+        "strict-check": cmd_strict_check,
         "sd-deploy": lambda: cmd_sd_deploy(args),
         "train": lambda: cmd_train(args),
         "infer": lambda: cmd_infer(args),

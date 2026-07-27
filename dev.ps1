@@ -62,6 +62,7 @@ function Show-Help {
     Write-Host "  .\dev.ps1 cloud-label <img_dir> <out_dir> <class1> [class2...]  # 多模态云端 AI 自动打标" -ForegroundColor Cyan
     Write-Host "  .\dev.ps1 check-data  <data.yaml>                       # 数据集格式预检" -ForegroundColor Cyan
     Write-Host "  .\dev.ps1 test-pipeline                                 # 端到端闭环极速验证" -ForegroundColor Cyan
+    Write-Host "  .\dev.ps1 strict-check                                  # 🔬 高精度高标准综合校验" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  训练（5 种任务）" -ForegroundColor White
     Write-Host "  .\dev.ps1 train-detect  <data.yaml> [epochs=100] [imgsz=640]" -ForegroundColor Yellow
@@ -221,6 +222,10 @@ switch ($Command.ToLower()) {
 
     "test-pipeline" {
         Run-Py "tools/test_full_pipeline.py"
+    }
+
+    "strict-check" {
+        Run-Py "tools/strict_high_precision_check.py"
     }
 
     "pipeline" {
