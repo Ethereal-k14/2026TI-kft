@@ -314,8 +314,14 @@ def main():
                     help='覆盖默认模型名（StepFun: step-3.7-flash；Qwen: qwen-vl-max；Gemini: gemini-2.5-flash）')
     a = ap.parse_args()
 
-    # 自动从 configs/api_keys.json 读取 API Key
+    # 3 级 API Key 读取机制：1. CLI 参数 -> 2. 环境变量 -> 3. configs/api_keys.json 配置文件
     api_key = a.api_key
+    if not api_key:
+        env_var_name = f"{a.provider.upper()}_API_KEY"
+        api_key = os.getenv(env_var_name) or os.getenv("CLOUD_LABEL_API_KEY")
+        if api_key:
+            print(f"[INFO] 成功从系统环境变量 {env_var_name} 中读取到 API Key")
+
     if not api_key:
         key_json_paths = [Path('configs/api_keys.json'), Path('api_keys.json')]
         for p in key_json_paths:
@@ -323,14 +329,14 @@ def main():
                 try:
                     data = json.loads(p.read_text(encoding='utf-8'))
                     api_key = data.get(f'{a.provider}_api_key') or data.get('api_key')
-                    if api_key:
+                    if api_key and not api_key.startswith("YOUR_"):
                         print(f'[INFO] 成功从秘钥配置文件 {p} 中读取到 {a.provider} 的 API Key')
                         break
                 except Exception as e:
                     print(f'[WARN] 读取 {p} 失败: {e}')
 
-    if not api_key:
-        sys.exit(f'[ERROR] 未提供 API Key！请通过 --api-key 传入，或在 configs/api_keys.json 中配置 "{a.provider}_api_key"。')
+    if not api_key or api_key.startswith("YOUR_"):
+        sys.exit(f'[ERROR] 未找到有效的 {a.provider} API Key！请设置环境变量 {a.provider.upper()}_API_KEY，或在 configs/api_keys.json 中填入秘钥。')
 
     img_dir    = Path(a.images)
     out_dir    = Path(a.output)

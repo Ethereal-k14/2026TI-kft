@@ -16,7 +16,7 @@ import os
 import sys
 import gc
 
-# 尝试导入 CanMV 板级专属硬件 API
+# 尝试导入 CanMV 板级硬件专属 API
 try:
     from media.camera import *
     from media.display import *
@@ -26,7 +26,50 @@ try:
     HAS_CANMV_HARDWARE = True
 except ImportError:
     HAS_CANMV_HARDWARE = False
-    print("[WARNING] 当前为非 CanMV 硬件环境，本代码仅供模板参考与打包说明。")
+    print("[WARNING] 当前处于 PC 非硬件环境，使用桩对象模拟 CanMV API 离线运行。")
+    # Mock 桩定义，防止本地 CPython 分析或语法报错
+    class MockCamera:
+        V4L2_PIX_FMT_YUV420P = 0
+        @classmethod
+        def sensor_init(cls, *args, **kwargs): pass
+        @classmethod
+        def set_outsize(cls, *args, **kwargs): pass
+        @classmethod
+        def start_stream(cls): pass
+        @classmethod
+        def stop_stream(cls): pass
+        @classmethod
+        def snapshot(cls): return None
+    class MockDisplay:
+        LT9611_1920X1080 = 0
+        @classmethod
+        def init(cls, *args, **kwargs): pass
+        @classmethod
+        def show_image(cls, *args, **kwargs): pass
+        @classmethod
+        def deinit(cls): pass
+    class MockMediaManager:
+        @classmethod
+        def init(cls): pass
+        @classmethod
+        def deinit(cls): pass
+    class MockKPU:
+        def load_kmodel(self, *args): pass
+        def set_input_tensor(self, *args): pass
+        def run(self): pass
+        def outputs_size(self): return 0
+        def get_output_tensor(self, i): return None
+    class MockNN:
+        kpu = MockKPU
+    Camera = MockCamera
+    Display = MockDisplay
+    MediaManager = MockMediaManager
+    nn = MockNN
+
+# 兼容 MicroPython time.sleep_ms
+import time
+if not hasattr(time, "sleep_ms"):
+    time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
 
 
 # 参数定义 (必须与训练导出时的 imgsz 完全一致)

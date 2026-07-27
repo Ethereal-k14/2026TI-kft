@@ -65,8 +65,17 @@ datasets/steel_auto_stepfun*/
 api_keys.json
 configs/api_keys.json
 *.key
+.env
+.env.*
 
-# 6. 系统与日志临时文件
+# 6. 数据集缓存与打标中间产物
+*.cache
+review_labels/
+*/review_labels/
+datasets/auto_labeled/
+datasets/steel_auto_stepfun*/
+
+# 7. 系统与日志临时文件
 *.log
 .DS_Store
 Thumbs.db

@@ -1,0 +1,5 @@
+{
+  "stepfun_api_key": "YOUR_STEPFUN_API_KEY_HERE",
+  "qwen_api_key": "YOUR_DASHSCOPE_API_KEY_HERE",
+  "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE"
+}

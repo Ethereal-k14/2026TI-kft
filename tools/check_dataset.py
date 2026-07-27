@@ -134,7 +134,8 @@ def check_dataset(yaml_path: str, max_check_samples: int = 100):
                     continue
                 try:
                     cls_id = int(parts[0])
-                    coords = [float(x) for x in parts[1:5]]
+                    # 兼容 Detection (4 坐标), OBB (8 坐标), Segmentation (偶数多点坐标)
+                    coords = [float(x) for x in parts[1:]]
                 except (ValueError, IndexError):
                     print(f"[WARNING] 标签行解析格式异常: {txt_p}:L{line_idx} -> '{line.strip()}'")
                     corrupt_labels += 1

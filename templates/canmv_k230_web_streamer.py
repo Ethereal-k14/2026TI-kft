@@ -19,7 +19,7 @@ import socket
 import select
 import gc
 
-# 尝试导入 CanMV 板级硬件与网络 API
+# 尝试导入 CanMV 硬件 API 模块
 try:
     from media.camera import *
     from media.display import *
@@ -29,7 +29,30 @@ try:
     HAS_CANMV_HARDWARE = True
 except ImportError:
     HAS_CANMV_HARDWARE = False
-    print("[WARNING] 当前非 CanMV 板端环境，本脚本提供 Web 视频流服务端逻辑与架构示范。")
+    print("[WARNING] 当前处于 PC 非硬件环境，网络视频流代码模板加载完成。")
+    class MockCamera:
+        @classmethod
+        def sensor_init(cls, *args, **kwargs): pass
+        @classmethod
+        def set_outsize(cls, *args, **kwargs): pass
+        @classmethod
+        def start_stream(cls): pass
+        @classmethod
+        def stop_stream(cls): pass
+        @classmethod
+        def snapshot(cls): return None
+    class MockMediaManager:
+        @classmethod
+        def init(cls): pass
+        @classmethod
+        def deinit(cls): pass
+    Camera = MockCamera
+    MediaManager = MockMediaManager
+
+# 兼容 MicroPython time.sleep_ms
+import time
+if not hasattr(time, "sleep_ms"):
+    time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
 
 
 # 部署配置
