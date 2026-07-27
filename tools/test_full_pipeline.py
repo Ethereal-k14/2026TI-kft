@@ -25,7 +25,8 @@ def run_cmd(cmd, cwd="."):
     print(f"[EXEC] {cmd}")
     res = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="ignore")
     if res.returncode != 0:
-        print(f"[FAIL] 命令执行失败 (code {res.returncode}):\n{res.stderr}")
+        err_msg = res.stderr.encode('ascii', errors='ignore').decode()
+        print(f"[FAIL] 命令执行失败 (code {res.returncode}):\n{err_msg}")
         return False, res.stdout + "\n" + res.stderr
     return True, res.stdout
 
