@@ -85,16 +85,16 @@ def encode_image(image_path: Path) -> tuple[str, int, int]:
 # ---------------------------------------------------------------------------
 
 def call_stepfun(api_key: str, b64: str, system_prompt: str, user_text: str, model_name: str = "step-3.7-flash") -> dict | None:
-    """调用阶跃星辰 step-3.7-flash 全模态模型。
-    Base URL: https://api.stepfun.com/v1  （注意是 .com 不是 .ai）
-    完全兼容 OpenAI SDK，建议使用 0~1000 整数刻度归一化，精度与稳定性最高。
+    """调用阶跃星辰 step-3.7-flash 全模态模型（Step Plan 通道）。
+    Step Plan 场景 Base URL 必须为: https://api.stepfun.com/step_plan/v1
+    使用此 Base URL 可直接消耗 Step Plan Credit 月池额度！
     """
     try:
         from openai import OpenAI
     except ImportError:
         sys.exit('[ERROR] 请先安装 openai: pip install openai')
 
-    client = OpenAI(api_key=api_key, base_url='https://api.stepfun.com/v1')
+    client = OpenAI(api_key=api_key, base_url='https://api.stepfun.com/step_plan/v1')
 
     # StepFun 专用的 0-1000 刻度强化 System Prompt
     stepfun_system_prompt = system_prompt + "\n注：边界框坐标可以使用 0~1000 的整数归一化刻度 [xmin, ymin, xmax, ymax]。"
@@ -304,8 +304,8 @@ def main():
     if not images:
         sys.exit(f"[ERROR] {img_dir} 下未找到图片文件")
 
-    print(f"[INFO] 共 {len(images)} 张图片，使用 {a.provider.upper()} API，置信度阈值 {a.confidence}")
-    print(f"[INFO] 类别: {class_names}")
+    print(f"\n[INFO] 共 {len(images)} 张图片，使用 {a.provider.upper()} API，置信度阈值 {a.confidence}")
+    print(f"[INFO] 类别列表: {class_names}\n")
     print()
 
     ok = skip = fail = 0
@@ -364,11 +364,12 @@ def main():
 
             if conf < a.confidence:
                 needs_review = True
+                is_confident = False
 
         save_path = label_rev if needs_review else label_ok
         save_path.write_text("\n".join(yolo_lines), encoding="utf-8")
 
-        tag = "⚠️ review" if needs_review else "✅"
+        tag = "[AUTO-LABEL]" if is_confident else "[NEED-REVIEW]"
         print(f"{tag}  {len(yolo_lines)} 个目标")
         ok += 1
 
