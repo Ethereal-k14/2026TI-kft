@@ -79,6 +79,19 @@ def cmd_check_data(args):
     run_cmd(["tools/check_dataset.py", "--data", args.data])
 
 
+def cmd_label(args):
+    cmd = ["tools/cloud_label.py", "--images", args.images, "--output", args.output, "--provider", args.provider]
+    if args.classes:
+        cmd.extend(["--classes"] + args.classes)
+    if args.api_key:
+        cmd.extend(["--api-key", args.api_key])
+    run_cmd(cmd)
+
+
+def cmd_test_pipeline():
+    run_cmd(["tools/test_full_pipeline.py"])
+
+
 def cmd_sd_deploy(args):
     cmd = ["tools/deploy_sd.py"]
     if args.drive:
@@ -255,8 +268,19 @@ def main():
     sub.add_parser("clean", help="清理构建与临时文件")
 
     # check-data
-    p_chkdata = sub.add_parser("check-data", help="数据集格式预检校验")
-    p_chkdata.add_argument("--data", required=True, help="数据集 yaml 配置文件")
+    p_check_data = sub.add_parser("check-data", help="数据集格式预检校验 (tools/check_dataset.py)")
+    p_check_data.add_argument("--data", required=True, help="数据集 yaml 配置文件路径")
+
+    # cloud-label
+    p_label = sub.add_parser("cloud-label", help="多模态大模型云端自动打标 (tools/cloud_label.py)")
+    p_label.add_argument("--images", required=True, help="原始图片目录")
+    p_label.add_argument("--output", default="datasets/auto_labeled", help="输出目录")
+    p_label.add_argument("--classes", required=True, nargs="+", help="类别列表")
+    p_label.add_argument("--provider", choices=["stepfun", "qwen", "gemini"], default="stepfun")
+    p_label.add_argument("--api-key", default=None, help="API Key (默认从 configs/api_keys.json 或环境变量读取)")
+
+    # test-pipeline
+    sub.add_parser("test-pipeline", help="端到端打标+校验+训练全流程一键集成测试 (tools/test_full_pipeline.py)")
 
     # sd-deploy
     p_sd = sub.add_parser("sd-deploy", help="智能识别盘符并一键部署到 SD 卡")
@@ -333,6 +357,8 @@ def main():
         "verify": cmd_verify,
         "gpu": cmd_gpu,
         "check-data": lambda: cmd_check_data(args),
+        "cloud-label": lambda: cmd_label(args),
+        "test-pipeline": cmd_test_pipeline,
         "sd-deploy": lambda: cmd_sd_deploy(args),
         "train": lambda: cmd_train(args),
         "infer": lambda: cmd_infer(args),

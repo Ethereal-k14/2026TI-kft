@@ -58,6 +58,10 @@ function Show-Help {
     Write-Host "  .\dev.ps1 audit              # 仅 7 维工作区完整性审计" -ForegroundColor Green
     Write-Host "  .\dev.ps1 verify             # 仅全流程功能验证（~20s）" -ForegroundColor Green
     Write-Host "  .\dev.ps1 gpu                # 检查 GPU / CUDA 状态" -ForegroundColor Green
+    Write-Host "  数据与打标" -ForegroundColor White
+    Write-Host "  .\dev.ps1 cloud-label <img_dir> <out_dir> <class1> [class2...]  # 多模态云端 AI 自动打标" -ForegroundColor Cyan
+    Write-Host "  .\dev.ps1 check-data  <data.yaml>                       # 数据集格式预检" -ForegroundColor Cyan
+    Write-Host "  .\dev.ps1 test-pipeline                                 # 端到端闭环极速验证" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "  训练（5 种任务）" -ForegroundColor White
     Write-Host "  .\dev.ps1 train-detect  <data.yaml> [epochs=100] [imgsz=640]" -ForegroundColor Yellow
@@ -205,6 +209,18 @@ switch ($Command.ToLower()) {
     "check-data" {
         if (-not $Arg1) { Write-Error "用法: .\dev.ps1 check-data <data.yaml>"; exit 1 }
         Run-Py "tools/check_dataset.py", "--data", $Arg1
+    }
+
+    "cloud-label" {
+        if (-not $Arg1 -or -not $Arg2 -or -not $Arg3) { Write-Error "用法: .\dev.ps1 cloud-label <images_dir> <output_dir> <class1> [class2...]"; exit 1 }
+        $cmdArgs = @("tools/cloud_label.py", "--images", $Arg1, "--output", $Arg2, "--classes", $Arg3)
+        if ($Arg4) { $cmdArgs += $Arg4 }
+        if ($RestArgs) { $cmdArgs += $RestArgs }
+        Run-Py $cmdArgs
+    }
+
+    "test-pipeline" {
+        Run-Py "tools/test_full_pipeline.py"
     }
 
     "pipeline" {

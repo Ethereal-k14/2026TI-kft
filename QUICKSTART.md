@@ -21,7 +21,21 @@ uv run python tools/verify_env.py
 
 ---
 
-## ② 训练（5 种任务）
+## ② 多模态 AI 云端自动打标 (StepFun step-3.7-flash)
+
+```bash
+# 1. 在 configs/api_keys.json 中配置秘钥（自动拦截不进 Git）
+# 2. 运行自动打标（自动整理为 YOLO11 标准格式）
+uv run python tools/cloud_label.py --images datasets/raw --output datasets/mydata --classes defect pitted_surface scratch --provider stepfun
+
+# 快捷命令 (PowerShell)
+.\dev.ps1 cloud-label datasets/raw datasets/mydata defect pitted_surface scratch
+.\dev.ps1 check-data  datasets/mydata/data.yaml
+```
+
+---
+
+## ③ 训练（5 种任务）
 
 ```bash
 # 目标检测（最常用）
