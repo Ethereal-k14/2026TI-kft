@@ -1,6 +1,4 @@
 #!/usr/bin/env pwsh
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 <#
 .SYNOPSIS
     K230 工程开发快捷命令集
@@ -31,6 +29,9 @@ param(
     [Parameter(ValueFromRemainingArguments=$true)]
     [string[]]$RestArgs
 )
+
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 Set-Location $PSScriptRoot
 
