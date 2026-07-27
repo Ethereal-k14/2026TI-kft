@@ -57,6 +57,7 @@ weights/*/*
 *.tensorrt
 !weights/.gitkeep
 !datasets/.gitkeep
+datasets/steel_ball_dataset/
 !data/.gitkeep
 
 # 5. 系统与日志临时文件
