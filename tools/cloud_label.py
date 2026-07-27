@@ -301,12 +301,30 @@ def main():
     ap.add_argument('--classes',  required=True,  nargs='+', help='类别列表，顺序即 class_id（0开始）')
     ap.add_argument('--provider', choices=['stepfun', 'qwen', 'gemini'], default='stepfun',
                     help='API 提供商：stepfun（阶跃星辰）/ qwen（阿里云）/ gemini（Google）')
-    ap.add_argument('--api-key',  required=True,  help='API Key')
+    ap.add_argument('--api-key',  default=None,  help='API Key（若留空将自动从 configs/api_keys.json 中读取）')
     ap.add_argument('--confidence', type=float, default=CONFIDENCE_THRESHOLD,
                     help=f'置信度阈值（低于此值进入 review_labels，默认 {CONFIDENCE_THRESHOLD}）')
     ap.add_argument('--model',    default=None,
                     help='覆盖默认模型名（StepFun: step-3.7-flash；Qwen: qwen-vl-max；Gemini: gemini-2.5-flash）')
     a = ap.parse_args()
+
+    # 自动从 configs/api_keys.json 读取 API Key
+    api_key = a.api_key
+    if not api_key:
+        key_json_paths = [Path('configs/api_keys.json'), Path('api_keys.json')]
+        for p in key_json_paths:
+            if p.exists():
+                try:
+                    data = json.loads(p.read_text(encoding='utf-8'))
+                    api_key = data.get(f'{a.provider}_api_key') or data.get('api_key')
+                    if api_key:
+                        print(f'[INFO] 成功从秘钥配置文件 {p} 中读取到 {a.provider} 的 API Key')
+                        break
+                except Exception as e:
+                    print(f'[WARN] 读取 {p} 失败: {e}')
+
+    if not api_key:
+        sys.exit(f'[ERROR] 未提供 API Key！请通过 --api-key 传入，或在 configs/api_keys.json 中配置 "{a.provider}_api_key"。')
 
     img_dir    = Path(a.images)
     out_dir    = Path(a.output)
@@ -351,11 +369,11 @@ def main():
             continue
 
         if a.provider == 'stepfun':
-            result = call_stepfun(a.api_key, b64, system_prompt, user_text, model_name=a.model or "step-3.7-flash")
+            result = call_stepfun(api_key, b64, system_prompt, user_text, model_name=a.model or "step-3.7-flash")
         elif a.provider == 'qwen':
-            result = call_qwen(a.api_key, b64, system_prompt, user_text)
+            result = call_qwen(api_key, b64, system_prompt, user_text)
         else:
-            result = call_gemini(a.api_key, b64, system_prompt, user_text)
+            result = call_gemini(api_key, b64, system_prompt, user_text)
 
         if result is None:
             print('API 失败，跳过')

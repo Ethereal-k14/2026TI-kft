@@ -61,7 +61,12 @@ datasets/steel_ball_dataset/
 datasets/steel_auto_stepfun*/
 !data/.gitkeep
 
-# 5. 系统与日志临时文件
+# 5. API Key 秘钥文件 (严禁提交到 Git)
+api_keys.json
+configs/api_keys.json
+*.key
+
+# 6. 系统与日志临时文件
 *.log
 .DS_Store
 Thumbs.db
