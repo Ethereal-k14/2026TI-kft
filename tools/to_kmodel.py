@@ -165,7 +165,7 @@ def compile_kmodel(args):
         raise SystemExit(f"[ERR] 校准集为空：{args.dataset}")
     calib_data = [preprocess(f, w, h, mode) for f in calib_files]
 
-    # 4) PTQ 量化配置（双重兼容 nncase 2.x API）
+    # 4) PTQ 量化配置（严格遵循 nncase 2.x 官方 API 规范）
     ptq_options = nncase.PTQTensorOptions()
     ptq_options.samples_count = len(calib_data)
     if hasattr(ptq_options, "input_mean"):
@@ -173,10 +173,13 @@ def compile_kmodel(args):
     if hasattr(ptq_options, "input_std"):
         ptq_options.input_std = std
     ptq_options.quant_type = args.quant_type          # "uint8" / "int8"
-    ptq_options.w_quant_type = args.quant_type
-    ptq_options.a_quant_type = args.quant_type
+    if hasattr(ptq_options, "w_quant_type"):
+        ptq_options.w_quant_type = args.quant_type
+    if hasattr(ptq_options, "a_quant_type"):
+        ptq_options.a_quant_type = args.quant_type
     ptq_options.calibrate_method = args.calib_method  # 字符串: "Kld" / "NoClip"
-    ptq_options.finetune_weights_method = "NoFineTuneWeights"
+    if hasattr(ptq_options, "finetune_weights_method"):
+        ptq_options.finetune_weights_method = "NoFineTuneWeights"
     
     cali_dtype = np.uint8 if mode == "norm255" else np.float32
     formatted_data = [d.astype(cali_dtype) for d in calib_data]
