@@ -59,6 +59,7 @@ def main():
         rect=False,
         cos_lr=True,
         amp=True,
+        exist_ok=True,
         verbose=True,
     )
     # 训练结束后自动导出 ONNX（固定输入，关闭 dynamic，便于 nncase 量化）

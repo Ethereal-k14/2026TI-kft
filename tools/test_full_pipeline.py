@@ -89,9 +89,10 @@ def main():
     if not ok:
         sys.exit(f"[FAIL] YOLO11 训练阶段报错！输出:\n{out}")
     
-    best_pt = Path("runs/detect/weights/detect/full_pipeline_fast_verify/weights/best.pt")
-    if not best_pt.exists():
-        sys.exit(f"[FAIL] 训练完成但未成功产出最佳权重文件: {best_pt}")
+    pts = sorted(Path(".").glob("**/full_pipeline_fast_verify*/**/best.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not pts:
+        sys.exit("[FAIL] 训练完成但未成功产出最佳权重文件 best.pt")
+    best_pt = pts[0]
     print(f"[PASS] YOLO11 训练成功！产出权重: {best_pt} (大小: {best_pt.stat().st_size / 1024 / 1024:.2f} MB)")
 
     log_step("STEP 5: K230 部署级 ONNX 导出与静态 Shape 检验")
@@ -100,13 +101,9 @@ def main():
     if not ok:
         print(f"[WARN] ONNX 导出反馈:\n{out}")
     
-    best_onnx = Path("runs/detect/weights/detect/full_pipeline_fast_verify/weights/best.onnx")
-    if not best_onnx.exists():
-        alt_onnx = best_pt.with_suffix(".onnx")
-        if alt_onnx.exists():
-            best_onnx = alt_onnx
-            
-    if best_onnx.exists():
+    onnxs = sorted(Path(".").glob("**/full_pipeline_fast_verify*/**/*.onnx"), key=lambda p: p.stat().st_mtime, reverse=True) + list(best_pt.parent.glob("*.onnx"))
+    if onnxs:
+        best_onnx = onnxs[0]
         print(f"[PASS] ONNX 导出成功！文件路径: {best_onnx} (大小: {best_onnx.stat().st_size / 1024 / 1024:.2f} MB)")
 
     log_step("=== 全调用链端到端全闭环测试完全成功！！！ ===")
