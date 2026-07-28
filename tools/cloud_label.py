@@ -21,6 +21,7 @@ tools/cloud_label.py — 云端视觉 API 辅助打标工具
 
 import argparse
 import base64
+import io
 import json
 import os
 import re
@@ -30,6 +31,10 @@ import time
 import yaml
 from io import BytesIO
 from pathlib import Path
+
+# 强制 UTF-8 输出包装，防止 Windows GBK 报错
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 try:
     from PIL import Image
@@ -118,14 +123,9 @@ def call_stepfun(api_key: str, b64: str, system_prompt: str, user_text: str, mod
                     ]},
                 ],
             }
-            # 开启 StepFun Thinking 推理增强模式（若模型支持）
-            try:
-                extra_params["extra_body"] = {"enable_thinking": True}
-                resp = client.chat.completions.create(**extra_params)
-            except Exception:
-                # 兼容不带 extra_body 的调用
-                extra_params.pop("extra_body", None)
-                resp = client.chat.completions.create(**extra_params)
+            # 设定 StepFun 官方标准的推理强度 (reasoning_effort)
+            extra_params["extra_body"] = {"reasoning_effort": "low"}
+            resp = client.chat.completions.create(**extra_params)
 
             raw = resp.choices[0].message.content.strip()
             # 使用正则截取完整的 JSON 结构
@@ -463,8 +463,12 @@ def main():
     for d in (train_img_dir, val_img_dir, train_lbl_dir, val_lbl_dir):
         d.mkdir(parents=True, exist_ok=True)
 
-    # 将自动打标完成的高置信度标签及图片同步一份到 YOLO11 标准 train/ 结构
-    for lbl_file in label_dir.glob("*.txt"):
+    # 将自动打标完成的高置信度标签及图片同步到 YOLO11 标准 train/ 结构
+    valid_lbls = list(label_dir.glob("*.txt"))
+    if not valid_lbls:
+        valid_lbls = list(review_dir.glob("*.txt"))
+
+    for lbl_file in valid_lbls:
         stem = lbl_file.stem
         # 匹配原图
         for ext in IMAGE_EXTS:
@@ -479,18 +483,18 @@ def main():
     # 自动写出 100% 符合 Ultralytics YOLO11 规范的 data.yaml 配置文件
     yaml_path = out_dir / "data.yaml"
     names_dict = {i: name for i, name in enumerate(class_names)}
-    yaml_content = f"""# Ultralytics YOLO11 Standard Dataset Config
-path: {out_dir.resolve().as_posix()}
-train: images/train
-val: images/val
-names:
-{yaml.dump(names_dict, sort_keys=False).strip()}
-"""
-    yaml_path.write_text(yaml_content, encoding="utf-8")
+    data_config = {
+        "path": out_dir.resolve().as_posix(),
+        "train": "images/train",
+        "val": "images/val",
+        "names": names_dict
+    }
+    with open(yaml_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data_config, f, sort_keys=False, allow_unicode=True)
 
     print()
     print("=" * 60)
-    print(" 🎯 [YOLO11 专用数据集结构打包完成]")
+    print(" [OK] [YOLO11 专用数据集结构打包完成]")
     print(f"  - 完整数据集根目录: {out_dir}")
     print(f"  - YOLO11 标准配置: {yaml_path}")
     print(f"  - 训练集 (Train):   {train_img_dir}")

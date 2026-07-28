@@ -120,6 +120,12 @@ def compile_kmodel(args):
     compile_options.quant_type = args.quant_type          # uint8 / int8
     compile_options.input_type = "uint8" if mode == "norm255" else "float32"
     compile_options.output_type = "float32"
+    if mode == "norm255":
+        compile_options.preprocess = True
+        compile_options.input_shape = [1, 3, h, w]
+        compile_options.input_range = [0, 255]
+        compile_options.input_layout = "NCHW"
+
     if args.dump_dir:
         compile_options.dump_ir = True
         compile_options.dump_asm = True
@@ -141,8 +147,7 @@ def compile_kmodel(args):
         raise SystemExit(f"[ERR] 校准集为空：{args.dataset}")
     calib_data = [preprocess(f, w, h, mode) for f in calib_files]
 
-    # 4) PTQ 量化配置（nncase use_ptq 要求 calibrate_method/quant_type 等为字符串，
-    #    见 .venv/.../nncase/__init__.py：匹配 "Kld"/"NoClip" 与 "uint8"/"int8"/"int16"）
+    # 4) PTQ 量化配置（nncase use_ptq 要求 calibrate_method/quant_type 等为字符串）
     ptq_options = nncase.PTQTensorOptions()
     ptq_options.samples_count = len(calib_data)
     ptq_options.input_mean = mean
@@ -152,8 +157,10 @@ def compile_kmodel(args):
     ptq_options.a_quant_type = args.quant_type
     ptq_options.calibrate_method = args.calib_method  # 字符串: "Kld" / "NoClip"
     ptq_options.finetune_weights_method = "NoFineTuneWeights"
-    # 校准样本直接放入 cali_data（nncase 在 use_ptq 内部读取，无需 compiler.set_input_tensor）
-    ptq_options.cali_data = [nncase.RuntimeTensor.from_numpy(d.astype(np.float32)) for d in calib_data]
+    
+    # 校准数据类型必须与 input_type 保持一致
+    cali_dtype = np.uint8 if mode == "norm255" else np.float32
+    ptq_options.cali_data = [nncase.RuntimeTensor.from_numpy(d.astype(cali_dtype)) for d in calib_data]
     compiler.use_ptq(ptq_options)
 
     # 5) 编译并写出 kmodel

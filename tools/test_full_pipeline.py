@@ -56,8 +56,8 @@ def main():
         
     test_raw_dir.mkdir(parents=True, exist_ok=True)
     
-    # 拷贝 1 张真实工业缺陷原图极速打标测试
-    src_images = glob.glob("datasets/NEU-DET-yolov8/data/NEU-DET/test/images/*.jpg")[:1]
+    # 拷贝 3 张真实工业缺陷原图极速打标测试
+    src_images = glob.glob("datasets/NEU-DET-yolov8/data/NEU-DET/test/images/*.jpg")[:3]
     if not src_images:
         sys.exit("[FAIL] 未搜寻到测试原图 datasets/NEU-DET-yolov8/data/NEU-DET/test/images")
         

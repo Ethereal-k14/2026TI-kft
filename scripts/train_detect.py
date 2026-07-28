@@ -66,7 +66,7 @@ def main():
     print(f"[INFO] 训练完成，尝试导出 ONNX: {best}")
     try:
         m = YOLO(best)
-        m.export(format="onnx", imgsz=a.imgsz, dynamic=False, simplify=True, opset=13)
+        m.export(format="onnx", imgsz=a.imgsz, dynamic=False, simplify=True, opset=13, half=False, nms=False, device="cpu")
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] 自动导出 ONNX 失败，可稍后手动执行 scripts/export_onnx.py：{e}")
     return 0

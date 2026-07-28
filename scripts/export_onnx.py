@@ -33,7 +33,7 @@ def main():
     a = parse_args()
     model = YOLO(a.weights)
     kwargs = dict(format="onnx", imgsz=a.imgsz, dynamic=False,
-                  simplify=True, opset=a.opset)
+                  simplify=True, opset=a.opset, half=False, nms=False, device="cpu")
     if a.task:
         kwargs["task"] = a.task
 

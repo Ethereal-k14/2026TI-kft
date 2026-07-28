@@ -65,7 +65,7 @@ def main():
     print(f"[INFO] 尝试自动导出 ONNX: {best_path}")
     try:
         m = YOLO(best_path)
-        m.export(format="onnx", imgsz=a.imgsz, dynamic=False, simplify=True, opset=13)
+        m.export(format="onnx", imgsz=a.imgsz, dynamic=False, simplify=True, opset=13, half=False, nms=False, device="cpu")
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] 自动导出 ONNX 失败，可稍后手动执行 scripts/export_onnx.py：{e}")
     print("=" * 50)
