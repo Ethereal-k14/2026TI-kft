@@ -165,22 +165,37 @@ def compile_kmodel(args):
         raise SystemExit(f"[ERR] 校准集为空：{args.dataset}")
     calib_data = [preprocess(f, w, h, mode) for f in calib_files]
 
-    # 4) PTQ 量化配置（严格遵循 nncase 2.x 官方 API 规范）
+    # 4) PTQ 量化配置（严格遵循 nncase 2.x 官方 API 规范与极致保精度策略）
     ptq_options = nncase.PTQTensorOptions()
     ptq_options.samples_count = len(calib_data)
     if hasattr(ptq_options, "input_mean"):
         ptq_options.input_mean = mean
     if hasattr(ptq_options, "input_std"):
         ptq_options.input_std = std
-    ptq_options.quant_type = args.quant_type          # "uint8" / "int8"
+
+    # 核心保精度点 1：权重采用 int8 (触发 Per-Channel 逐通道量化)，激活采用 uint8 (非对称量化)
+    ptq_options.quant_type = args.quant_type
     if hasattr(ptq_options, "w_quant_type"):
-        ptq_options.w_quant_type = args.quant_type
+        ptq_options.w_quant_type = "int8" if args.quant_type in ("uint8", "int8") else args.quant_type
     if hasattr(ptq_options, "a_quant_type"):
-        ptq_options.a_quant_type = args.quant_type
-    ptq_options.calibrate_method = args.calib_method  # 字符串: "Kld" / "NoClip"
+        ptq_options.a_quant_type = "uint8"
+
+    ptq_options.calibrate_method = args.calib_method  # "NoClip" / "Kld"
     if hasattr(ptq_options, "finetune_weights_method"):
         ptq_options.finetune_weights_method = "NoFineTuneWeights"
-    
+
+    # 核心保精度点 2：混合精度 Quant Scheme 配置导出与加载
+    if getattr(args, "export_scheme", False) and hasattr(ptq_options, "export_quant_scheme"):
+        ptq_options.export_quant_scheme = True
+        ptq_options.export_quant_scheme_dir = os.path.dirname(os.path.abspath(args.output))
+        print(f"[INFO] 已开启量化配置文件 (Quant Scheme) 导出：{ptq_options.export_quant_scheme_dir}")
+
+    if getattr(args, "quant_scheme", None) and hasattr(ptq_options, "quant_scheme"):
+        ptq_options.quant_scheme = args.quant_scheme
+        if hasattr(ptq_options, "quant_scheme_strict_mode"):
+            ptq_options.quant_scheme_strict_mode = True
+        print(f"[INFO] 已加载敏感层 FP32 混合精度配置文件：{args.quant_scheme}")
+
     cali_dtype = np.uint8 if mode == "norm255" else np.float32
     formatted_data = [d.astype(cali_dtype) for d in calib_data]
 
@@ -216,6 +231,8 @@ def parse_args():
     p.add_argument("--calib-method", default="NoClip",
                    choices=["NoClip", "Kld"],
                    help="校准算法：NoClip=Min-Max全范围映射(YOLO检测任务首选，防止DetectHead极值截断导致精度崩溃); Kld=KL散度")
+    p.add_argument("--export-scheme", action="store_true", help="导出量化配置文件 (Quant Scheme JSON) 以便手动调整敏感层精度")
+    p.add_argument("--quant-scheme", default=None, help="加载修改后的 Quant Scheme JSON 配置文件，实施敏感层 FP32 混合精度保护")
     p.add_argument("--dump-dir", default=None, help="IR/asm 调试信息保存目录（默认不生成）")
     return p.parse_args()
 
