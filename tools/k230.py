@@ -38,7 +38,29 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def run_cmd(args):
-    """运行 python 脚本命令，保持环境一致性"""
+    """优先使用原生 Python 模块动态导入调起，避免子进程二次加载重型包的开销"""
+    script_path = args[0]
+    script_args = args[1:]
+    
+    # 模块名转换 (e.g. tools/audit_workspace.py -> tools.audit_workspace)
+    mod_name = script_path.replace("\\", "/").replace("/", ".").removesuffix(".py")
+    try:
+        import importlib
+        old_argv = sys.argv
+        sys.argv = [script_path] + script_args
+        try:
+            mod = importlib.import_module(mod_name)
+            if hasattr(mod, "main"):
+                res = mod.main()
+                if isinstance(res, int) and res != 0:
+                    sys.exit(res)
+                return
+        finally:
+            sys.argv = old_argv
+    except Exception:
+        pass
+
+    # 回退到子进程安全执行
     cmd = [sys.executable] + args
     res = subprocess.run(cmd, cwd=PROJECT_ROOT)
     if res.returncode != 0:
@@ -76,7 +98,10 @@ def cmd_gpu():
 
 
 def cmd_check_data(args):
-    run_cmd(["tools/check_dataset.py", "--data", args.data])
+    cmd = ["tools/check_dataset.py", "--data", args.data]
+    if getattr(args, "strict", False):
+        cmd.append("--strict")
+    run_cmd(cmd)
 
 
 def cmd_label(args):
@@ -274,6 +299,7 @@ def main():
     # check-data
     p_check_data = sub.add_parser("check-data", help="数据集格式预检校验 (tools/check_dataset.py)")
     p_check_data.add_argument("--data", required=True, help="数据集 yaml 配置文件路径")
+    p_check_data.add_argument("--strict", action="store_true", help="开启严格模式")
 
     # cloud-label
     p_label = sub.add_parser("cloud-label", help="多模态大模型云端自动打标 (tools/cloud_label.py)")

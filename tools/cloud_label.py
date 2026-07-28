@@ -76,16 +76,20 @@ def build_user_text(classes: list[str]) -> str:
 # 图片预处理
 # ---------------------------------------------------------------------------
 
-def encode_image(image_path: Path) -> tuple[str, int, int]:
-    """返回 (base64_str, original_width, original_height)"""
-    with Image.open(image_path) as img:
-        if img.mode not in ("RGB", "L"):
-            img = img.convert("RGB")
-        orig_w, orig_h = img.size
-        img.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        return base64.b64encode(buf.getvalue()).decode(), orig_w, orig_h
+def encode_image(image_path: Path) -> tuple[str, int, int] | None:
+    """返回 (base64_str, original_width, original_height)，发生损坏时返回 None 安全跳过"""
+    try:
+        with Image.open(image_path) as img:
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            orig_w, orig_h = img.size
+            img.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
+            buf = BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return base64.b64encode(buf.getvalue()).decode(), orig_w, orig_h
+    except Exception as e:
+        print(f"[WARN] 图像损坏或读取失败，已安全的隔离跳过 ({image_path.name}): {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +106,8 @@ def call_stepfun(api_key: str, b64: str, system_prompt: str, user_text: str, mod
     except ImportError:
         sys.exit('[ERROR] 请先安装 openai: pip install openai')
 
-    client = OpenAI(api_key=api_key, base_url='https://api.stepfun.com/step_plan/v1')
+    # 显式锁定 timeout=30.0 秒防无休止挂起
+    client = OpenAI(api_key=api_key, base_url='https://api.stepfun.com/step_plan/v1', timeout=30.0)
 
     # StepFun 专用的 0-1000 刻度强化 System Prompt
     stepfun_system_prompt = system_prompt + "\n注：边界框坐标可以使用 0~1000 的整数归一化刻度 [xmin, ymin, xmax, ymax]。"
@@ -112,7 +117,6 @@ def call_stepfun(api_key: str, b64: str, system_prompt: str, user_text: str, mod
             extra_params = {
                 "model": model_name,
                 "response_format": {'type': 'json_object'},
-                "temperature": 0.05,
                 "messages": [
                     {'role': 'system', 'content': stepfun_system_prompt},
                     {'role': 'user', 'content': [

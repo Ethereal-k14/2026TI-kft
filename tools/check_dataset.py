@@ -43,8 +43,8 @@ def resolve_dataset_path(path_str: str, yaml_dir: str) -> str:
     return p1 if os.path.exists(p1) else p2
 
 
-def check_dataset(yaml_path: str, max_check_samples: int = 100):
-    print(f"\n🔍 正在预检数据集配置: {yaml_path}")
+def check_dataset(yaml_path: str, max_check_samples: int = 100, strict: bool = False):
+    print(f"\n🔍 正在预检数据集配置: {yaml_path} (严格模式: {'开启' if strict else '关闭'})")
     print("=" * 60)
 
     yaml_abs = os.path.abspath(yaml_path)
@@ -153,7 +153,11 @@ def check_dataset(yaml_path: str, max_check_samples: int = 100):
     print(f"[PASS] 抽查标签文件: {valid_labels} 份，格式异常行数: {corrupt_labels}")
 
     if corrupt_labels > 0:
-        print("[WARNING] ⚠️ 发现部分标签格式可能不规范，建议检查处理后再开始训练。")
+        if strict:
+            print("[ERR] ❌ 严格模式使能：检测到坏标签数据，阻止后续训练！")
+            return False
+        else:
+            print("[WARNING] ⚠️ 发现部分标签格式可能不规范，建议检查处理后再开始训练。")
     else:
         print("✅ 数据集格式预检全部合格，可放心开启训练！")
 
@@ -165,9 +169,10 @@ def main():
     p = argparse.ArgumentParser(description="YOLO 数据集格式预检校验器 (tools/check_dataset.py)")
     p.add_argument("--data", required=True, help="数据集 yaml 配置文件")
     p.add_argument("--samples", type=int, default=100, help="抽样检查图片数量")
+    p.add_argument("--strict", action="store_true", help="开启严格校验模式，发现损毁标签时阻断退出")
     args = p.parse_args()
 
-    success = check_dataset(args.data, args.samples)
+    success = check_dataset(args.data, args.samples, args.strict)
     sys.exit(0 if success else 1)
 
 
