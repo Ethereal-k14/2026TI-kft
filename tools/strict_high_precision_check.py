@@ -200,8 +200,8 @@ def test_real_benchmark_precision():
         print("  [SKIP] 暂未找到待比对模型或测试集")
         return True
 
-    from tools.benchmark_kmodel_precision import benchmark_precision
-    res = benchmark_precision(str(pt_p), str(onnx_p), str(test_d))
+    from tools.benchmark_kmodel_precision import benchmark_multi_metrics
+    res = benchmark_multi_metrics(str(pt_p), str(onnx_p), str(test_d))
     return res
 
 
