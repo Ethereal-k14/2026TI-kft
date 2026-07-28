@@ -190,6 +190,8 @@ def cmd_kmodel(args):
     ]
     if args.output:
         cmd.extend(["--output", args.output])
+    if getattr(args, "calib_method", None):
+        cmd.extend(["--calib-method", args.calib_method])
     run_cmd(cmd)
 
 
@@ -356,9 +358,10 @@ def main():
     # kmodel
     p_km = sub.add_parser("kmodel", help="nncase ONNX -> .kmodel 转换")
     p_km.add_argument("--model", required=True, help="ONNX 模型路径")
-    p_km.add_argument("--dataset", required=True, help="校准集图片目录")
-    p_km.add_argument("--imgsz", type=int, default=320)
-    p_km.add_argument("--output", default=None)
+    p_km.add_argument("--dataset", required=True, help="校准图片目录路径")
+    p_km.add_argument("--imgsz", type=int, default=320, help="分辨率尺寸")
+    p_km.add_argument("--output", default=None, help="输出 .kmodel 路径")
+    p_km.add_argument("--calib-method", default="NoClip", choices=["NoClip", "Kld"], help="校准算法：NoClip=Min-Max全映射(YOLO检测首选，防止BBox截断精度掉坑); Kld=KL散度")
 
     # pack
     p_pk = sub.add_parser("pack", help="构建 K230 板端部署包")

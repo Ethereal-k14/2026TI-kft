@@ -213,9 +213,9 @@ def parse_args():
     p.add_argument("--quant-type", default="uint8", choices=["uint8", "int8"])
     p.add_argument("--preprocess", default="norm255", choices=["norm255", "norm01"])
     p.add_argument("--calib-count", type=int, default=100, help="最多使用的校准图片数")
-    p.add_argument("--calib-method", default="Kld",
-                   choices=["Kld", "NoClip"],
-                   help="Kld=KL散度(默认,推荐); NoClip")
+    p.add_argument("--calib-method", default="NoClip",
+                   choices=["NoClip", "Kld"],
+                   help="校准算法：NoClip=Min-Max全范围映射(YOLO检测任务首选，防止DetectHead极值截断导致精度崩溃); Kld=KL散度")
     p.add_argument("--dump-dir", default=None, help="IR/asm 调试信息保存目录（默认不生成）")
     return p.parse_args()
 
