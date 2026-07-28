@@ -79,29 +79,38 @@ def read_model_file(model_file: str) -> bytes:
 
 
 def preprocess(image_path: str, width: int, height: int, mode: str):
-    """与 Ultralytics 推理一致的预处理：resize -> RGB -> float32 -> NCHW。
+    """与 K230 KPU AI2D 硬件与 Ultralytics 推理一致的预处理。
 
     mode:
-      norm255 -> 像素保持 0~255，配套 input_mean=0 / input_std=255（K230 常用）
-      norm01  -> 像素归一化到 0~1，配套 input_mean=0 / input_std=1
+      norm255 -> AI2D 预处理模式：返回 NCHW (1, 3, H, W) np.uint8 (0~255)
+      norm01  -> 纯软件前处理模式：返回 NCHW (1, 3, H, W) np.float32 (0.0~1.0)
     """
     img = Image.open(image_path).convert("RGB").resize((width, height), Image.BILINEAR)
-    arr = np.asarray(img, dtype=np.float32)
-    if mode == "norm01":
-        arr = arr / 255.0
-    # HWC -> CHW -> NCHW
-    arr = arr.transpose(2, 0, 1)[None, ...]
-    return arr
+    arr = np.asarray(img)  # HWC uint8 (0~255)
+
+    if mode == "norm255":
+        # 统一转为 NCHW (1, 3, H, W) uint8
+        return arr.transpose(2, 0, 1)[None, ...].astype(np.uint8)
+    else:
+        # HWC -> CHW -> NCHW (1, 3, H, W) float32, 归一化 0~1
+        arr_f32 = arr.astype(np.float32) / 255.0
+        return arr_f32.transpose(2, 0, 1)[None, ...]
 
 
 def collect_calib_images(dataset_dir: str, limit: int = 100):
     if not os.path.exists(dataset_dir) or not os.path.isdir(dataset_dir):
         return []
     exts = (".jpg", ".jpeg", ".png", ".bmp")
-    files = sorted(
-        os.path.join(dataset_dir, f) for f in os.listdir(dataset_dir) if f.lower().endswith(exts)
-    )
-    return files[:limit]
+    files = []
+    for root, _, fs in os.walk(dataset_dir):
+        for f in fs:
+            if f.lower().endswith(exts):
+                files.append(os.path.join(root, f))
+                if len(files) >= limit:
+                    break
+        if len(files) >= limit:
+            break
+    return files
 
 
 def compile_kmodel(args):
@@ -114,17 +123,26 @@ def compile_kmodel(args):
     mean = [0.0, 0.0, 0.0]
     std = [255.0, 255.0, 255.0] if mode == "norm255" else [1.0, 1.0, 1.0]
 
-    # 1) 编译选项
+    # 1) 编译选项 (严格对齐 K230 KPU 官方 AI2D 规范)
     compile_options = nncase.CompileOptions()
     compile_options.target = "k230"
     compile_options.quant_type = args.quant_type          # uint8 / int8
-    compile_options.input_type = "uint8" if mode == "norm255" else "float32"
-    compile_options.output_type = "float32"
+    
     if mode == "norm255":
         compile_options.preprocess = True
+        compile_options.input_type = "uint8"
         compile_options.input_shape = [1, 3, h, w]
         compile_options.input_range = [0, 255]
         compile_options.input_layout = "NCHW"
+        if hasattr(compile_options, "mean"):
+            compile_options.mean = mean
+        if hasattr(compile_options, "std"):
+            compile_options.std = std
+    else:
+        compile_options.preprocess = False
+        compile_options.input_type = "float32"
+
+    compile_options.output_type = "float32"
 
     if args.dump_dir:
         compile_options.dump_ir = True
@@ -147,20 +165,30 @@ def compile_kmodel(args):
         raise SystemExit(f"[ERR] 校准集为空：{args.dataset}")
     calib_data = [preprocess(f, w, h, mode) for f in calib_files]
 
-    # 4) PTQ 量化配置（nncase use_ptq 要求 calibrate_method/quant_type 等为字符串）
+    # 4) PTQ 量化配置（双重兼容 nncase 2.x API）
     ptq_options = nncase.PTQTensorOptions()
     ptq_options.samples_count = len(calib_data)
-    ptq_options.input_mean = mean
-    ptq_options.input_std = std
+    if hasattr(ptq_options, "input_mean"):
+        ptq_options.input_mean = mean
+    if hasattr(ptq_options, "input_std"):
+        ptq_options.input_std = std
     ptq_options.quant_type = args.quant_type          # "uint8" / "int8"
     ptq_options.w_quant_type = args.quant_type
     ptq_options.a_quant_type = args.quant_type
     ptq_options.calibrate_method = args.calib_method  # 字符串: "Kld" / "NoClip"
     ptq_options.finetune_weights_method = "NoFineTuneWeights"
     
-    # 校准数据类型必须与 input_type 保持一致
     cali_dtype = np.uint8 if mode == "norm255" else np.float32
-    ptq_options.cali_data = [nncase.RuntimeTensor.from_numpy(d.astype(cali_dtype)) for d in calib_data]
+    formatted_data = [d.astype(cali_dtype) for d in calib_data]
+
+    if hasattr(ptq_options, "set_tensor_data"):
+        try:
+            ptq_options.set_tensor_data([[d] for d in formatted_data])
+        except Exception:
+            ptq_options.cali_data = [nncase.RuntimeTensor.from_numpy(d) for d in formatted_data]
+    else:
+        ptq_options.cali_data = [nncase.RuntimeTensor.from_numpy(d) for d in formatted_data]
+
     compiler.use_ptq(ptq_options)
 
     # 5) 编译并写出 kmodel

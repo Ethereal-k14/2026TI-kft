@@ -160,6 +160,36 @@ def test_onnx_static_shape():
     return all_pass
 
 
+def test_kmodel_binary_header():
+    log_section("5. K230 .kmodel 编译产物二进制 Header 魔术字 (LDMK) 验证")
+    kmodel_paths = [
+        PROJECT_ROOT / "tmp" / "test_norm255_fixed.kmodel",
+        PROJECT_ROOT / "tmp" / "test_norm01_fixed.kmodel",
+        PROJECT_ROOT / "weights" / "yolo11n_320.kmodel"
+    ]
+    
+    passed = 0
+    total = 0
+    for p in kmodel_paths:
+        if p.exists():
+            total += 1
+            with open(p, "rb") as f:
+                header = f.read(4)
+            size_mb = p.stat().st_size / (1024 * 1024)
+            if header == b"LDMK":
+                passed += 1
+                print(f"  [PASS] {p.relative_to(PROJECT_ROOT)} -> Header: {header.decode()} | 大小: {size_mb:.2f} MB (魔法头校验完全正确)")
+            else:
+                print(f"  [FAIL] {p.relative_to(PROJECT_ROOT)} -> Header 非 LDMK 魔术字: {header}")
+
+    if total == 0:
+        print("  [SKIP] 暂未找到待测 .kmodel 文件")
+        return True
+    
+    print(f"  断言结果: {passed}/{total} .kmodel 产物魔术字校验通过！")
+    return passed == total
+
+
 def main():
     print("======================================================================")
     print(" [STRICT CHECK] K230 视觉工程 · 高精度、高标准工业级综合严密校验器")
@@ -169,6 +199,7 @@ def main():
     res2 = test_ast_compilation()
     res3 = test_security_leak_scan()
     res4 = test_onnx_static_shape()
+    res5 = test_kmodel_binary_header()
 
     print("\n" + "=" * 70)
     print(" [SUMMARY] 高精准校验最终结果")
@@ -177,9 +208,10 @@ def main():
     print(f"  2. 源码全量 AST 语法严密审计 : {'[PASS]' if res2 else '[FAIL]'}")
     print(f"  3. 0 硬编码敏感密钥扫盘   : {'[PASS]' if res3 else '[FAIL]'}")
     print(f"  4. K230 ONNX 静态维度校验  : {'[PASS]' if res4 else '[FAIL]'}")
+    print(f"  5. .kmodel LDMK 魔法头断言 : {'[PASS]' if res5 else '[FAIL]'}")
     print("=" * 70)
 
-    all_ok = res1 and res2 and res3 and res4
+    all_ok = res1 and res2 and res3 and res4 and res5
     if all_ok:
         print("\n [OK] 恭喜！工作区 100% 满足工业级高精度与高标准要求！")
         return 0
