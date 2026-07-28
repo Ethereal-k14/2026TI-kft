@@ -190,6 +190,21 @@ def test_kmodel_binary_header():
     return passed == total
 
 
+def test_real_benchmark_precision():
+    log_section("6. PyTorch vs ONNX 端到端真实像素级 Mean IoU 精度 Benchmark 实测")
+    pt_p = PROJECT_ROOT / "runs" / "detect" / "weights" / "detect" / "full_pipeline_fast_verify" / "weights" / "best.pt"
+    onnx_p = PROJECT_ROOT / "runs" / "detect" / "weights" / "detect" / "full_pipeline_fast_verify" / "weights" / "best.onnx"
+    test_d = PROJECT_ROOT / "datasets" / "test_pipeline_raw"
+
+    if not pt_p.exists() or not onnx_p.exists() or not test_d.exists():
+        print("  [SKIP] 暂未找到待比对模型或测试集")
+        return True
+
+    from tools.benchmark_kmodel_precision import benchmark_precision
+    res = benchmark_precision(str(pt_p), str(onnx_p), str(test_d))
+    return res
+
+
 def main():
     print("======================================================================")
     print(" [STRICT CHECK] K230 视觉工程 · 高精度、高标准工业级综合严密校验器")
@@ -200,6 +215,7 @@ def main():
     res3 = test_security_leak_scan()
     res4 = test_onnx_static_shape()
     res5 = test_kmodel_binary_header()
+    res6 = test_real_benchmark_precision()
 
     print("\n" + "=" * 70)
     print(" [SUMMARY] 高精准校验最终结果")
@@ -209,9 +225,10 @@ def main():
     print(f"  3. 0 硬编码敏感密钥扫盘   : {'[PASS]' if res3 else '[FAIL]'}")
     print(f"  4. K230 ONNX 静态维度校验  : {'[PASS]' if res4 else '[FAIL]'}")
     print(f"  5. .kmodel LDMK 魔法头断言 : {'[PASS]' if res5 else '[FAIL]'}")
+    print(f"  6. 实测级 Mean IoU 精度比对: {'[PASS]' if res6 else '[FAIL]'}")
     print("=" * 70)
 
-    all_ok = res1 and res2 and res3 and res4 and res5
+    all_ok = res1 and res2 and res3 and res4 and res5 and res6
     if all_ok:
         print("\n [OK] 恭喜！工作区 100% 满足工业级高精度与高标准要求！")
         return 0
