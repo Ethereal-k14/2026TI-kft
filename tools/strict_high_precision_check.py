@@ -19,18 +19,13 @@ import ast
 import subprocess
 from pathlib import Path
 
-# 强制 UTF-8 输出
-import io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def log_section(title):
     print("\n" + "=" * 70)
-    print(f" 🔬 [HIGH-PRECISION CHECK] {title}")
+    print(f" [HIGH-PRECISION CHECK] {title}")
     print("=" * 70)
 
 
@@ -42,15 +37,14 @@ def test_bbox_math_precision():
         # (xmin, ymin, xmax, ymax, expected_xc, expected_yc, expected_w, expected_h)
         (0.0, 0.0, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0),
         (0.1, 0.2, 0.5, 0.8, 0.3, 0.5, 0.4, 0.6),
-        (0, 0, 1000, 1000, 0.5, 0.5, 1.0, 1.0),  # 0~1000 整数刻度
+        (0, 0, 1000, 1000, 0.5, 0.5, 1.0, 1.0),   # 0~1000 整数刻度
         (100, 200, 300, 400, 0.2, 0.3, 0.2, 0.2), # 0~1000 整数刻度
-        (-0.1, -0.2, 1.2, 1.5, 0.5, 0.5, 1.0, 1.0), # 越界 clamp
+        (-100, -200, 1200, 1500, 0.5, 0.5, 1.0, 1.0), # 0~1000 刻度越界 clamp 测试
     ]
 
     passed = 0
     for idx, (xmin, ymin, xmax, ymax, exp_xc, exp_yc, exp_w, exp_h) in enumerate(test_cases, 1):
-        # 兼容模拟 to_yolo 逻辑
-        if max(xmin, ymin, xmax, ymax) > 1.5:
+        if max(abs(xmin), abs(ymin), abs(xmax), abs(ymax)) > 1.5:
             xmin, ymin, xmax, ymax = xmin / 1000.0, ymin / 1000.0, xmax / 1000.0, ymax / 1000.0
             
         res = to_yolo(xmin, ymin, xmax, ymax)
@@ -102,7 +96,8 @@ def test_ast_compilation():
 
 def test_security_leak_scan():
     log_section("3. 全库及 Git 提交历史硬编码 Key 高强度扫盘")
-    pattern = re.compile(r'3arEbrykwmnFV[A-Za-z0-9]{30,}')
+    # 支持拦截 OpenAI sk-..., StepFun 3arE..., Gemini AIza..., Qwen 等所有通用格式明文秘钥
+    pattern = re.compile(r'(?:sk-[A-Za-z0-9]{32,}|3arEbrykwmnFV[A-Za-z0-9]{30,}|AIzaSy[A-Za-z0-9_-]{33})')
     
     # 扫盘项目代码
     leaks = 0
@@ -167,7 +162,7 @@ def test_onnx_static_shape():
 
 def main():
     print("======================================================================")
-    print(" 🔬 K230 视觉工程 · 高精度、高标准工业级综合严密校验器")
+    print(" [STRICT CHECK] K230 视觉工程 · 高精度、高标准工业级综合严密校验器")
     print("======================================================================")
 
     res1 = test_bbox_math_precision()
@@ -176,20 +171,20 @@ def main():
     res4 = test_onnx_static_shape()
 
     print("\n" + "=" * 70)
-    print(" 📊 高精准校验最终结果")
+    print(" [SUMMARY] 高精准校验最终结果")
     print("=" * 70)
-    print(f"  1. BBox 数学转换高精度断言 : {'✅ PASS' if res1 else '❌ FAIL'}")
-    print(f"  2. 源码全量 AST 语法严密审计 : {'✅ PASS' if res2 else '❌ FAIL'}")
-    print(f"  3. 0 硬编码敏感密钥扫盘   : {'✅ PASS' if res3 else '❌ FAIL'}")
-    print(f"  4. K230 ONNX 静态维度校验  : {'✅ PASS' if res4 else '❌ FAIL'}")
+    print(f"  1. BBox 数学转换高精度断言 : {'[PASS]' if res1 else '[FAIL]'}")
+    print(f"  2. 源码全量 AST 语法严密审计 : {'[PASS]' if res2 else '[FAIL]'}")
+    print(f"  3. 0 硬编码敏感密钥扫盘   : {'[PASS]' if res3 else '[FAIL]'}")
+    print(f"  4. K230 ONNX 静态维度校验  : {'[PASS]' if res4 else '[FAIL]'}")
     print("=" * 70)
 
     all_ok = res1 and res2 and res3 and res4
     if all_ok:
-        print("\n✨ 恭喜！工作区 100% 满足工业级高精度与高标准要求！")
+        print("\n [OK] 恭喜！工作区 100% 满足工业级高精度与高标准要求！")
         return 0
     else:
-        print("\n⚠️ 存在部分高精度测试项未通过，请检查日志。")
+        print("\n [WARN] 存在部分高精度测试项未通过，请检查日志。")
         return 1
 
 

@@ -36,10 +36,17 @@ CUDA 驱动需自行安装，与 PyTorch 版本匹配。
 - 覆盖真实部署场景的**光照、角度、距离、遮挡、背景**。
 - 标注格式用 **YOLO txt**（每行：`class_id cx cy w h`，均归一化 0~1）。
 - 标注工具：[Label Studio](https://labelstud.io/)、[CVAT](https://www.cvat.ai/)、[makesense.ai](https://www.makesense.ai/)。
-- **云端大模型自动打标 (推荐)**：使用本项目提供的 `tools/cloud_label.py`，配置 `configs/api_keys.json` 后可直接调用 **StepFun (`step-3.7-flash`)** / Qwen-VL 零人工标注并自动产出符合 YOLO11 标准的数据集：
+- **云端大模型自动打标 (推荐)**：使用本项目提供的 `tools/cloud_label.py`，配置 `configs/api_keys.json` (自动隔离不进 Git) 后可直接调用阶跃星辰旗舰模型 **StepFun (`step-3.7-flash`)** / Qwen-VL / Gemini 零人工标注，自动进行 BBox 0-1000 坐标自适应换算与 `[0.0, 1.0]` 防越界截断，产出符合 YOLO11 标准的数据集：
+  - **Step Plan 通道**：自动路由至 `https://api.stepfun.com/step_plan/v1` 独立 Endpoint，优先抵扣月池套餐额度；
+  - **高效推理控制**：配置 `reasoning_effort="low"` 标准深度，保证标签提取精准且开销最低。
   ```bash
   # 在 configs/api_keys.json 中配置 stepfun_api_key 后运行：
   uv run python tools/cloud_label.py --images datasets/raw --output datasets/mydata --classes class0 class1 --provider stepfun
+  
+  # PowerShell 快捷一键运行与预检校验
+  .\dev.ps1 cloud-label datasets/raw datasets/mydata class0 class1
+  .\dev.ps1 check-data datasets/mydata/data.yaml
+  .\dev.ps1 strict-check
   ```
 
 ### 目录结构

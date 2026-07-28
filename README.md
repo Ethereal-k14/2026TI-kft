@@ -69,10 +69,10 @@ cd /d/Destop/k230-project
 # 用 uv 创建虚拟环境并安装依赖（首次会自动下载 Python 3.10 与依赖）
 uv sync
 
-# 1. 验证环境（基础包验证 & 一键全流程功能全项检验 & 7 维工作区完整性审计）
-uv run python -c "import ultralytics, torch; print('ultralytics', ultralytics.__version__, '| torch', torch.__version__, '| cuda', torch.cuda.is_available())"
-uv run python tools/verify_env.py
+# 1. 验证环境（工作区 7 维审计 + 工业级高精度数学与 ONNX 静态维度校验）
 uv run python tools/audit_workspace.py
+uv run python tools/strict_high_precision_check.py
+uv run python tools/test_full_pipeline.py
 
 # 用 COCO128 小数据集快速体验 YOLO11n 检测训练
 uv run python scripts/train_detect.py --data configs/coco128.yaml --epochs 10 --imgsz 640

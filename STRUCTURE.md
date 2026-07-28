@@ -88,9 +88,13 @@ scripts/
 
 ```
 tools/
-├── verify_env.py         # 全流程功能验证（训练→推理→ONNX导出 ~17s）
-├── audit_workspace.py    # 7 维工作区完整性审计（依赖/文件/AST/Git/YAML）
-├── to_kmodel.py          # nncase PTQ 量化：ONNX → .kmodel（Windows原生 / Linux / WSL2 均可）
+├── cloud_label.py      # 多模态 AI 云端自动打标 (StepFun step-3.7-flash / Qwen / Gemini)
+├── check_dataset.py    # YOLO11 数据集完整性与规范性诊断预检
+├── strict_high_precision_check.py # 🔬 工业级高精度、高标准综合校验器
+├── test_full_pipeline.py # ⚡ 端到端打标+校验+训练+导出闭环集成测试
+├── verify_env.py       # 一键全流程环境校验（训练→推理→ONNX导出 ~17s）
+├── audit_workspace.py  # 7 维工作区完整性审计（依赖/文件/AST/Git/YAML）
+├── to_kmodel.py        # nncase PTQ 量化：ONNX → .kmodel（Windows原生 / Linux / WSL2 均可）
 ├── generate_deploy_pack.py # 一键打包 K230 板端部署文件（kmodel+labels+脚本）
 └── nncase_kpu-2.11.0-py2.py3-none-win_amd64.whl  # 预置 Windows 离线 wheel
 ```

@@ -63,11 +63,9 @@ python -m pip install nncase==2.9.0 nncase-kpu==2.9.0
 
 ### Windows 原生（本工程默认）
 ```bash
-uv run python tools/to_kmodel.py \
-    --model weights/best.onnx \
-    --dataset datasets/calib \
-    --input-size 320 320 \
-    --output weights/best.kmodel
+# 标准 PTQ 量化转换 (默认 --quant-type uint8 --preprocess norm255)
+# 自动开启 compile_options.preprocess = True 并在 input_type="uint8" 模式下自动匹配 uint8 校准张量
+uv run python tools/to_kmodel.py --model weights/best.onnx --dataset datasets/calib --input-size 320 320 --output weights/best.kmodel
 ```
 
 ### Linux / WSL2（若走该路径）

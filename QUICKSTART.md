@@ -16,7 +16,13 @@ uv sync
 
 # 验证环境（约 20s，全部 PASS 才继续）
 uv run python tools/audit_workspace.py
-uv run python tools/verify_env.py
+uv run python tools/strict_high_precision_check.py
+uv run python tools/test_full_pipeline.py
+
+# 快捷命令 (PowerShell)
+.\dev.ps1 check
+.\dev.ps1 strict-check
+.\dev.ps1 test-pipeline
 ```
 
 ---
