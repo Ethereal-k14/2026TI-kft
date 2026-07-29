@@ -1,0 +1,2 @@
+config load "balance_control.ioc"
+exit

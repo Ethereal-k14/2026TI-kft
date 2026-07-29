@@ -1,0 +1,21 @@
+{
+    "files.associations": {
+        "uart0.h": "c",
+        "compare": "c",
+        "cstdlib": "c",
+        "stdio.h": "c",
+        "stdint.h": "c",
+        "ring_buffer.h": "c",
+        "uart1.h": "c",
+        "type_traits": "c",
+        "string.h": "c",
+        "stdlib.h": "c",
+        "sdm18.h": "c"
+    },
+    "idf.pythonInstallPath": "C:\\Espressif\\tools\\idf-python\\3.11.2\\python.exe",
+    "idf.espIdfPathWin": "C:/Espressif/frameworks/esp-idf-v5.1.2/",
+    "idf.toolsPathWin": "C:\\Espressif",
+    "idf.openOcdConfigs": [
+        "board/esp32s3-bridge.cfg"
+    ]
+}
