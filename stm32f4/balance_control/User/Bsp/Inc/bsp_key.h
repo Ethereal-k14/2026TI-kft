@@ -26,8 +26,8 @@ typedef struct
 {
     bool limit_min_triggered; /* 最小限位已触发（引脚曾为低） */
     bool limit_max_triggered; /* 最大限位已触发 */
-    bool limit_min_active;    /* 当前引脚稳定电平低（限位激活） */
-    bool limit_max_active;    /* 当前引脚稳定电平低 */
+    bool limit_min_active;    /* 常闭回路断开/触发后为高，含断线保护 */
+    bool limit_max_active;
     bool start_key_pressed;   /* 去抖后的按键事件（只产生一次，消费后清零） */
 } key_limit_state_t;
 

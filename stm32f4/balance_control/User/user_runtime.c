@@ -16,10 +16,12 @@
 #include "app_controller.h"
 #include "app_debug.h"
 #include "app_estimator.h"
+#include "app_identification.h"
 #include "app_protocol.h"
 #include "app_safety.h"
 #include "app_scheduler.h"
 #include "app_vision.h"
+#include "user_config.h"
 
 static proto_port_ctx_t s_chassis_protocol;
 static proto_port_ctx_t s_vision_protocol;
@@ -43,6 +45,9 @@ void User_Runtime_Init(void)
     App_Vision_Init(&s_vision_protocol);
     App_Estimator_Init(NULL);
     App_Controller_Init(NULL);
+    (void)App_Controller_SetProfile(
+        (ball_ctrl_profile_t)USER_DEFAULT_BALL_PROFILE);
+    App_Identification_Init();
     App_Safety_Init(NULL);
     App_Debug_Init();
     App_Scheduler_Init();

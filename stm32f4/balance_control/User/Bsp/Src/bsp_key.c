@@ -73,9 +73,9 @@ void BSP_Key_Init(void)
 
     /* 读取当前引脚电平作为初始状态 */
     s_ctx.state.limit_min_active =
-        (HAL_GPIO_ReadPin(LIMIT_MIN_GPIO_Port, LIMIT_MIN_Pin) == GPIO_PIN_RESET);
+        (HAL_GPIO_ReadPin(LIMIT_MIN_GPIO_Port, LIMIT_MIN_Pin) == GPIO_PIN_SET);
     s_ctx.state.limit_max_active =
-        (HAL_GPIO_ReadPin(LIMIT_MAX_GPIO_Port, LIMIT_MAX_Pin) == GPIO_PIN_RESET);
+        (HAL_GPIO_ReadPin(LIMIT_MAX_GPIO_Port, LIMIT_MAX_Pin) == GPIO_PIN_SET);
 }
 
 void BSP_Key_Process(void)
@@ -126,7 +126,7 @@ void BSP_Key_StartKeyIsr(void)
 void BSP_Key_LimitMinIsr(void)
 {
     /* 双边沿：读取稳定电平 */
-    bool active = (HAL_GPIO_ReadPin(LIMIT_MIN_GPIO_Port, LIMIT_MIN_Pin) == GPIO_PIN_RESET);
+    bool active = (HAL_GPIO_ReadPin(LIMIT_MIN_GPIO_Port, LIMIT_MIN_Pin) == GPIO_PIN_SET);
     s_ctx.state.limit_min_active = active;
     if (active)
     {
@@ -136,7 +136,7 @@ void BSP_Key_LimitMinIsr(void)
 
 void BSP_Key_LimitMaxIsr(void)
 {
-    bool active = (HAL_GPIO_ReadPin(LIMIT_MAX_GPIO_Port, LIMIT_MAX_Pin) == GPIO_PIN_RESET);
+    bool active = (HAL_GPIO_ReadPin(LIMIT_MAX_GPIO_Port, LIMIT_MAX_Pin) == GPIO_PIN_SET);
     s_ctx.state.limit_max_active = active;
     if (active)
     {

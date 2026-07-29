@@ -62,6 +62,9 @@ void BSP_Adc_DmaCallback(bool half);
  */
 void BSP_Adc_GetSample(sensor_sample_t *out);
 
+/** true only after a physical angle calibration has been installed. */
+bool BSP_Adc_IsCalibrated(void);
+
 #ifdef __cplusplus
 }
 #endif

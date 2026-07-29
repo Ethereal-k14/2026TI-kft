@@ -160,6 +160,11 @@ void BSP_Adc_GetSample(sensor_sample_t *out)
     }
 }
 
+bool BSP_Adc_IsCalibrated(void)
+{
+    return s_cal_valid;
+}
+
 /* -------------------------------------------------------------------------
  * HAL 回调转发（放在本文件，由 Core/stm32f4xx_it.c USER CODE 段调用）
  * 若 CubeMX 在其他地方弱定义了这些回调，请改为在 Core 层调用 BSP_Adc_DmaCallback

@@ -70,13 +70,13 @@ SPI 与 I²C OLED 后端均已提供，但运行时只选择一个；当前 `Use
 | | MS1 / MS2 | PE2 / PE3 | GPIO Output Push-Pull | - | 默认全高 (16 微步) |
 | | SPREAD | PE4 | GPIO Output Push-Pull | - | 默认高 (SpreadCycle 模式) |
 | **激光测距** | SDM18 串口 | PC10 (TX) / PC11 (RX) | UART4 (921600 8N1) | DMA1 Stream2 (RX Circular) / Stream4 (TX Normal) | UART IDLE + DMA 环形取数 |
-| **下位机 IMU**| 姿态/控制通信 | PD5 (TX) / PD6 (RX) | USART2 (921600 8N1) | DMA1 Stream5 (RX Circular) / Stream6 (TX Normal) | 接收 IMU 加速度 / 状态 |
+| **下位机 IMU**| 姿态/控制通信 | PD5 (TX) / PD6 (RX) | USART2 (115200 8N1) | DMA1 Stream5 (RX Circular) / Stream6 (TX Normal) | MSPM0 专用二进制链路 |
 | **视觉模块** | 位置/速度输入 | PD8 (TX) / PD9 (RX) | USART3 (921600 8N1) | DMA1 Stream1 (RX Circular) / Stream3 (TX Normal) | 接收视觉位姿数据 |
 | **调试输出** | 串口 Log/VOFA | PA9 (TX) / PA10 (RX) | USART1 (115200 8N1) | DMA2 Stream2 (RX Circular) / Stream7 (TX Normal) | 调试输出，不入控制环 |
 | **OLED 显示** | SPI 模式 (主选) | PA5 (SCK), PA7 (MOSI)<br>PE7 (CS), PE8 (DC), PE9 (RST) | SPI1 TX-Only (5.25 Mbit/s, CPOL=High, CPHA=2Edge) | DMA2 Stream3 (TX Normal) | PA6 (MISO) 悬空不连 |
 | | I²C 模式 (备用) | PB8 (SCL), PB9 (SDA) | I2C1 Fast Mode (400 kHz) | - | 外部 4.7 kΩ 上拉到 3.3V |
 | **系统按键** | 启动按键 | PE0 | EXTI0 (下降沿触发, 上拉) | NVIC Priority 5 | 20 ms 软件防抖 |
-| **限位开关** | MIN / MAX 限位 | PE5 / PE6 | EXTI5 / EXTI6 (双边沿触发, 上拉) | NVIC Priority 3 | 常闭开关，低电平正常，断线报警 |
+| **限位开关** | MIN / MAX 限位 | PE5 / PE6 | EXTI5 / EXTI6 (双边沿触发, 上拉) | NVIC Priority 3 | 常闭到地：低=正常，高=触发/断线 |
 | **控制定时器**| 系统 1kHz Tick | - | TIM6 (Prescaler=83, Period=999, Interrupt) | NVIC Priority 1 | 系统最高优先级控制时钟 |
 
 ### 3. STM32F407VET6 (LQFP100) 芯片适配说明
@@ -85,8 +85,9 @@ SPI 与 I²C OLED 后端均已提供，但运行时只选择一个；当前 `Use
    仓库根目录下的 [balance_control.ioc](file:///d:/Destop/test/26%E7%94%B5%E8%B5%9B/2026TI-kft/stm32f4/balance_control/balance_control.ioc) 已结合 ST 官方数据手册完成了修改，将目标芯片调整为 **STM32F407VET6 (LQFP100)**，可以直接使用 STM32CubeMX 打开并重新生成代码。
 2. **引脚 100% 硬件兼容**：
    项目用到的所有 GPIO 引脚（`PA0~PA15`、`PB3~PB9`、`PC0`、`PC6~PC11`、`PD5~PD9`、`PE0~PE9`、`PH0~PH1`）在 **STM32F407VET6 (LQFP100)** 封装中全部存在且位置功能完全一致，**无需更改任何引脚分配**。
-3. **Flash / RAM 容量极度充裕**：
-   STM32F407VET6 具备 **512 KB Flash + 192 KB SRAM**，当前工程编译后资源占用不足 60 KB Flash / 20 KB SRAM，无需裁剪代码。
+3. **Flash / RAM 容量**：
+   STM32F407VET6 具备 **512 KB Flash + 192 KB SRAM**；每次正式构建应以链接器 map
+   文件记录实际占用，不能用语法检查结果推断 Flash/RAM 余量。
 4. **内核与时钟完全一致**：
    同属 STM32F407 系列，Cortex-M4F 主频 168 MHz (HSE 8MHz)，所有 TIM / ADC / UART 分频参数保持原样。
 
@@ -96,4 +97,3 @@ SPI 与 I²C OLED 后端均已提供，但运行时只选择一个；当前 `Use
 2. 确认 MCU 已自动识别为 `STM32F407VET6` (LQFP100 封装)，外设、时钟树、DMA、NVIC 参数无缝对应。
 3. 点击 **Generate Code** 重新生成工程即可！
 4. 在 Keil MDK-ARM 中确认 `Include Paths` 与 `User/` 源文件关联，运行 `Tools/check_user_layout.ps1` 校验全通过后直接编译烧录！
-

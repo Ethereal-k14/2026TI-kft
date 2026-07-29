@@ -22,6 +22,7 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "user_isr.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,6 +57,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_spi1_tx;
+extern DMA_HandleTypeDef hdma_adc1;
 extern SPI_HandleTypeDef hspi1;
 extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim6;
@@ -207,6 +209,23 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 1 */
 }
 
+void EXTI0_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(START_KEY_Pin);
+}
+
+void EXTI4_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(MAG_ENC_Z_Pin);
+}
+
+void EXTI9_5_IRQHandler(void)
+{
+  HAL_GPIO_EXTI_IRQHandler(LIMIT_MIN_Pin);
+  HAL_GPIO_EXTI_IRQHandler(LIMIT_MAX_Pin);
+  HAL_GPIO_EXTI_IRQHandler(TMC_DIAG_Pin);
+}
+
 /******************************************************************************/
 /* STM32F4xx Peripheral Interrupt Handlers                                    */
 /* Add here the Interrupt Handlers for the used peripherals.                  */
@@ -318,7 +337,12 @@ void SPI1_IRQHandler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-
+  if ((__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE) != RESET) &&
+      (__HAL_UART_GET_IT_SOURCE(&huart1, UART_IT_IDLE) != RESET))
+  {
+    __HAL_UART_CLEAR_IDLEFLAG(&huart1);
+    User_Isr_OnUartIdle((uint8_t)USER_ISR_PORT_DEBUG);
+  }
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
@@ -332,7 +356,12 @@ void USART1_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
   /* USER CODE BEGIN USART2_IRQn 0 */
-
+  if ((__HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE) != RESET) &&
+      (__HAL_UART_GET_IT_SOURCE(&huart2, UART_IT_IDLE) != RESET))
+  {
+    __HAL_UART_CLEAR_IDLEFLAG(&huart2);
+    User_Isr_OnUartIdle((uint8_t)USER_ISR_PORT_CHASSIS);
+  }
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
@@ -346,7 +375,12 @@ void USART2_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
-
+  if ((__HAL_UART_GET_FLAG(&huart3, UART_FLAG_IDLE) != RESET) &&
+      (__HAL_UART_GET_IT_SOURCE(&huart3, UART_IT_IDLE) != RESET))
+  {
+    __HAL_UART_CLEAR_IDLEFLAG(&huart3);
+    User_Isr_OnUartIdle((uint8_t)USER_ISR_PORT_VISION);
+  }
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
@@ -388,7 +422,12 @@ void TIM5_IRQHandler(void)
 void UART4_IRQHandler(void)
 {
   /* USER CODE BEGIN UART4_IRQn 0 */
-
+  if ((__HAL_UART_GET_FLAG(&huart4, UART_FLAG_IDLE) != RESET) &&
+      (__HAL_UART_GET_IT_SOURCE(&huart4, UART_IT_IDLE) != RESET))
+  {
+    __HAL_UART_CLEAR_IDLEFLAG(&huart4);
+    User_Isr_OnUartIdle((uint8_t)USER_ISR_PORT_LIDAR);
+  }
   /* USER CODE END UART4_IRQn 0 */
   HAL_UART_IRQHandler(&huart4);
   /* USER CODE BEGIN UART4_IRQn 1 */

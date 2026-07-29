@@ -39,6 +39,20 @@ function Assert-Equal {
     }
 }
 
+function Assert-ContainsValue {
+    param(
+        [string]$KeyPattern,
+        [string]$Expected
+    )
+
+    $matches = @($entries.Keys |
+        Where-Object { $_ -like $KeyPattern } |
+        Where-Object { $entries[$_] -eq $Expected })
+    if ($matches.Count -eq 0) {
+        $errors.Add("No key matching '$KeyPattern' has value '$Expected'")
+    }
+}
+
 $ipCount = ($entries.Keys | Where-Object { $_ -match '^Mcu\.IP\d+$' }).Count
 $pinCount = ($entries.Keys | Where-Object { $_ -match '^Mcu\.Pin\d+$' }).Count
 $dmaRequestCount = ($entries.Keys | Where-Object { $_ -match '^Dma\.Request\d+$' }).Count
@@ -51,7 +65,7 @@ foreach ($duplicatePin in $duplicatePins) {
     $errors.Add("Pin is declared more than once: $($duplicatePin.Name)")
 }
 
-Assert-Equal 'Mcu.CPN' 'STM32F407ZGT6'
+Assert-Equal 'Mcu.CPN' 'STM32F407VET6'
 Assert-Equal 'Mcu.IPNb' $ipCount.ToString()
 Assert-Equal 'Mcu.PinsNb' $pinCount.ToString()
 Assert-Equal 'Dma.RequestsNb' $dmaRequestCount.ToString()
@@ -64,7 +78,7 @@ Assert-Equal 'RCC.SYSCLKFreq_VALUE' '168000000'
 Assert-Equal 'PH0-OSC_IN.Mode' 'HSE-External-Oscillator'
 Assert-Equal 'PH1-OSC_OUT.Mode' 'HSE-External-Oscillator'
 Assert-Equal 'PC0.Signal' 'ADCx_IN10'
-Assert-Equal 'Mcu.IP1' 'ADC1'
+Assert-ContainsValue 'Mcu.IP*' 'ADC1'
 Assert-Equal 'ADC1.Channel-10\#ChannelRegularConversion' 'ADC_CHANNEL_10'
 Assert-Equal 'ADC1.ExternalTrigConv' 'ADC_EXTERNALTRIGCONV_T3_TRGO'
 Assert-Equal 'PA5.Signal' 'SPI1_SCK'
@@ -76,8 +90,8 @@ Assert-Equal 'I2C1.ClockSpeed' '400000'
 Assert-Equal 'PC6.Signal' 'S_TIM8_CH1'
 Assert-Equal 'PA15.Signal' 'S_TIM2_CH1_ETR'
 Assert-Equal 'PB3.Signal' 'S_TIM2_CH2'
-Assert-Equal 'Mcu.IP14' 'TIM2'
-Assert-Equal 'Mcu.IP15' 'TIM5'
+Assert-ContainsValue 'Mcu.IP*' 'TIM2'
+Assert-ContainsValue 'Mcu.IP*' 'TIM5'
 Assert-Equal 'TIM2.EncoderMode' 'TIM_ENCODERMODE_TI12'
 Assert-Equal 'TIM2.Period' '4294967295'
 Assert-Equal 'TIM5.Channel-PWM\ Input1' 'TIM_CHANNEL_1'
@@ -102,8 +116,12 @@ Assert-Equal 'PD9.Signal' 'USART3_RX'
 Assert-Equal 'PC10.Signal' 'UART4_TX'
 Assert-Equal 'PC11.Signal' 'UART4_RX'
 Assert-Equal 'UART4.BaudRate' '921600'
-Assert-Equal 'USART2.BaudRate' '921600'
+Assert-Equal 'USART2.BaudRate' '115200'
 Assert-Equal 'USART3.BaudRate' '921600'
+if ($entries['ProjectManager.functionlistsort'] -notmatch 'MX_ADC1_Init-ADC1' -or
+    $entries['ProjectManager.functionlistsort'] -notmatch 'MX_TIM2_Init-TIM2') {
+    $errors.Add('ProjectManager.functionlistsort must include ADC1 and TIM2 generation entries')
+}
 
 $expectedDma = @{
     'Dma.ADC1.0.Instance'      = 'DMA2_Stream0'

@@ -9,6 +9,8 @@
 #include "bsp_key.h"
 #include "bsp_stepper.h"
 #include "bsp_uart_dma.h"
+#include "main.h"
+#include "tim.h"
 
 void User_Isr_OnSchedulerTick(void)
 {
@@ -54,4 +56,36 @@ void User_Isr_OnStepperDiag(void)
 void User_Isr_OnEncoderIndex(void)
 {
     BSP_Encoder_ZIndexIsr();
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if ((htim != NULL) && (htim->Instance == TIM6))
+    {
+        User_Isr_OnSchedulerTick();
+    }
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin)
+{
+    switch (gpio_pin)
+    {
+    case START_KEY_Pin:
+        User_Isr_OnStartKey();
+        break;
+    case LIMIT_MIN_Pin:
+        User_Isr_OnLimitMin();
+        break;
+    case LIMIT_MAX_Pin:
+        User_Isr_OnLimitMax();
+        break;
+    case TMC_DIAG_Pin:
+        User_Isr_OnStepperDiag();
+        break;
+    case MAG_ENC_Z_Pin:
+        User_Isr_OnEncoderIndex();
+        break;
+    default:
+        break;
+    }
 }

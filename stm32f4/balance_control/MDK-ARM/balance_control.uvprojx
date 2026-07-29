@@ -627,6 +627,11 @@
               <FilePath>../User/App/Src/app_controller.c</FilePath>
             </File>
             <File>
+              <FileName>ball_control_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../User/App/Src/ball_control_core.c</FilePath>
+            </File>
+            <File>
               <FileName>app_debug.c</FileName>
               <FileType>1</FileType>
               <FilePath>../User/App/Src/app_debug.c</FilePath>
@@ -635,6 +640,11 @@
               <FileName>app_estimator.c</FileName>
               <FileType>1</FileType>
               <FilePath>../User/App/Src/app_estimator.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_identification.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../User/App/Src/app_identification.c</FilePath>
             </File>
             <File>
               <FileName>app_safety.c</FileName>

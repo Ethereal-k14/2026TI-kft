@@ -2,7 +2,7 @@
  * @file    app_scheduler.h
  * @brief   基于 TIM6 1 kHz 的任务调度器接口（规范 §3、§6）
  *
- *  TIM6 ISR 设置 sched_flags 位域（volatile），主循环轮询并清零后执行。
+ *  TIM6 ISR 累加待处理 tick；主循环逐个消费，禁止位标志吞掉周期。
  *  各任务分频：
  *    1    kHz : BSP_Key_Process、App_Safety_Check（内环 STEP 更新由 TMC 硬件定时）
  *    500   Hz : App_Controller_InnerLoop
@@ -51,6 +51,15 @@ void App_Scheduler_Run(void);
 
 /** @brief 读取上一个 1 kHz 周期的最大执行时间（µs，用于验收） */
 uint32_t App_Scheduler_GetMaxLoopUs(void);
+
+typedef struct {
+    uint32_t max_loop_us;
+    uint32_t late_tick_count;
+    uint32_t dropped_tick_count;
+    uint16_t max_pending_ticks;
+} scheduler_diag_t;
+
+void App_Scheduler_GetDiag(scheduler_diag_t *out);
 
 #ifdef __cplusplus
 }

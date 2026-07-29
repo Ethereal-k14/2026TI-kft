@@ -109,9 +109,19 @@ void BSP_Stepper_SetFreq(uint32_t freq_hz)
 
 void BSP_Stepper_SetDir(bool fwd)
 {
+    if (s_state.dir_fwd != fwd)
+    {
+        /* Remove STEP before DIR and guarantee the TMC setup interval. */
+        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0U);
+        HAL_GPIO_WritePin(TMC_DIR_GPIO_Port, TMC_DIR_Pin,
+                          fwd ? GPIO_PIN_SET : GPIO_PIN_RESET);
+        for (volatile uint32_t i = 0U;
+             i < (SystemCoreClock / 1000000U) * 2U; i++)
+        {
+            __NOP();
+        }
+    }
     s_state.dir_fwd = fwd;
-    HAL_GPIO_WritePin(TMC_DIR_GPIO_Port, TMC_DIR_Pin,
-                      fwd ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 void BSP_Stepper_Enable(bool en)

@@ -16,6 +16,7 @@ typedef struct
     chassis_imu_t     imu;
     uint32_t          last_imu_ms;
     uint32_t          last_heartbeat_ms;
+    float             target_feedfwd_weight;
 } chassis_ctx_t;
 
 static chassis_ctx_t s_ctx;
@@ -53,9 +54,10 @@ static void chassis_rx_cb(proto_msg_id_t id,
                               ((uint32_t)payload[10U] << 16U) | ((uint32_t)payload[11U] << 24U));
                 s_ctx.imu.quality      = payload[12U];
                 s_ctx.imu.timestamp_us = timestamp_us;
-                s_ctx.imu.valid        = true;
+                s_ctx.imu.valid        = s_ctx.imu.quality >= 128U;
                 s_ctx.imu.comm_degraded = false;
-                s_ctx.imu.feedfwd_weight = 1.0f; /* 恢复满权重（需缓慢爬升，由外环控制） */
+                s_ctx.target_feedfwd_weight = s_ctx.imu.valid ?
+                    (float)s_ctx.imu.quality / 255.0f : 0.0f;
                 s_ctx.last_imu_ms      = HAL_GetTick();
             }
             break;
@@ -89,12 +91,23 @@ void App_Chassis_Process(void)
     uint32_t now_ms  = HAL_GetTick();
     uint32_t elapsed = now_ms - s_ctx.last_imu_ms;
 
+    /* Limit feedforward gain changes to avoid a recovered link creating a step. */
+    if (s_ctx.imu.feedfwd_weight < s_ctx.target_feedfwd_weight) {
+        s_ctx.imu.feedfwd_weight += 0.1f;
+        if (s_ctx.imu.feedfwd_weight > s_ctx.target_feedfwd_weight) {
+            s_ctx.imu.feedfwd_weight = s_ctx.target_feedfwd_weight;
+        }
+    }
+
     if (elapsed > 50U && s_ctx.imu.valid)
     {
         /* 50 ms 超时：前馈权重每 1 ms 衰减（100 ms 内归零） */
         float decay = (float)(elapsed - 50U) / 100.0f;
         if (decay > 1.0f) { decay = 1.0f; }
-        s_ctx.imu.feedfwd_weight = 1.0f - decay;
+        if (s_ctx.imu.feedfwd_weight > (1.0f - decay)) {
+            s_ctx.imu.feedfwd_weight = 1.0f - decay;
+        }
+        s_ctx.target_feedfwd_weight = s_ctx.imu.feedfwd_weight;
     }
 
     if (elapsed > 200U)
@@ -102,6 +115,7 @@ void App_Chassis_Process(void)
         s_ctx.imu.valid         = false;
         s_ctx.imu.comm_degraded = true;
         s_ctx.imu.feedfwd_weight = 0.0f;
+        s_ctx.target_feedfwd_weight = 0.0f;
     }
 }
 

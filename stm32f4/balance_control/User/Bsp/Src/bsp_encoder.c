@@ -71,6 +71,11 @@ void BSP_Encoder_Init(void)
     /* 读取初始计数作为基准 */
     s_ctx.cnt_prev    = (int32_t)__HAL_TIM_GET_COUNTER(&htim2);
     s_ctx.ts_prev_us  = BSP_GetTimestampUs();
+    /* Relative-zero fallback allows commissioning before the Z wire is used.
+       A later Z edge atomically replaces this software zero. */
+    s_ctx.index_offset = s_ctx.cnt_prev;
+    s_ctx.state.position_count = 0;
+    s_ctx.state.index_valid = true;
     s_ctx.initialized = true;
 }
 

@@ -22,4 +22,12 @@
 /* 0: 仅使用磁编码器/电位器；1: 允许融合激光位置。 */
 #define USER_LIDAR_FUSION_ENABLE    (0U)
 
+/* Start-key action: 0=dynamic lap/center hold, 1=+5 cm/-5 cm static test. */
+#define USER_START_ACTION_DYNAMIC   (0U)
+#define USER_START_ACTION_STATIC_STEP (1U)
+#define USER_START_ACTION           USER_START_ACTION_DYNAMIC
+
+/* ball_ctrl_profile_t: 0=safe, 1=precision, 2=balanced, 3=fast. */
+#define USER_DEFAULT_BALL_PROFILE   (2U)
+
 #endif /* USER_CONFIG_H */

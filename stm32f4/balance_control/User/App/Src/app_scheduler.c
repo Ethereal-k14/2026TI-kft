@@ -9,6 +9,7 @@
 #include "app_safety.h"
 #include "app_controller.h"
 #include "app_estimator.h"
+#include "app_identification.h"
 #include "app_chassis.h"
 #include "app_vision.h"
 #include "app_debug.h"
@@ -19,6 +20,7 @@
 #include "bsp_oled_spi.h"
 #include "tim.h"   /* htim6 */
 #include "main.h"
+#include "user_config.h"
 #include <string.h>
 
 /* -------------------------------------------------------------------------
@@ -26,7 +28,8 @@
  * ---------------------------------------------------------------------- */
 typedef struct
 {
-    volatile uint32_t sched_flags;    /* 由 ISR 设置，主循环清零 */
+    volatile uint16_t pending_ticks;
+    volatile uint32_t dropped_tick_count;
 
     /* 分频计数器 */
     uint32_t cnt_500hz;   /* 每 2 次 1 kHz 触发 500 Hz */
@@ -38,6 +41,8 @@ typedef struct
     /* 性能监测 */
     uint32_t loop_start_cyc;
     uint32_t max_loop_us;
+    uint32_t late_tick_count;
+    uint16_t max_pending_ticks;
 } sched_ctx_t;
 
 static sched_ctx_t s_ctx;
@@ -70,20 +75,27 @@ void App_Scheduler_Init(void)
 
 void App_Scheduler_Isr(void)
 {
-    /* 仅设置 1 kHz 标志；分频由主循环计数 */
-    s_ctx.sched_flags |= SCHED_FLAG_1KHZ;
+    if (s_ctx.pending_ticks < UINT16_MAX) {
+        s_ctx.pending_ticks++;
+    } else {
+        s_ctx.dropped_tick_count++;
+    }
 }
 
 void App_Scheduler_Run(void)
 {
-    /* 无 1 kHz 事件则直接返回 */
-    if ((s_ctx.sched_flags & SCHED_FLAG_1KHZ) == 0U)
-    {
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    if (s_ctx.pending_ticks == 0U) {
+        if (primask == 0U) { __enable_irq(); }
         return;
     }
-
-    /* 清除标志（原子操作，仅清 1 kHz 位） */
-    s_ctx.sched_flags &= ~SCHED_FLAG_1KHZ;
+    if (s_ctx.pending_ticks > s_ctx.max_pending_ticks) {
+        s_ctx.max_pending_ticks = s_ctx.pending_ticks;
+    }
+    if (s_ctx.pending_ticks > 1U) { s_ctx.late_tick_count++; }
+    s_ctx.pending_ticks--;
+    if (primask == 0U) { __enable_irq(); }
 
     /* 记录循环开始时间 */
     uint32_t cyc_start = DWT->CYCCNT;
@@ -109,7 +121,12 @@ void App_Scheduler_Run(void)
     {
         if (App_Safety_RequestStart())
         {
-            (void)App_Chassis_SendCmd(CHASSIS_CMD_START, 0U);
+            if (USER_START_ACTION == USER_START_ACTION_STATIC_STEP) {
+                (void)App_Identification_Start();
+            } else {
+                App_Controller_SetTargetPos(0);
+                (void)App_Chassis_SendCmd(CHASSIS_CMD_START, 0U);
+            }
         }
     }
 
@@ -139,6 +156,7 @@ void App_Scheduler_Run(void)
         s_ctx.cnt_50hz = 0U;
         if (App_Safety_IsRunning())
         {
+            App_Identification_Process();
             App_Controller_OuterLoop();
         }
     }
@@ -170,4 +188,14 @@ void App_Scheduler_Run(void)
 uint32_t App_Scheduler_GetMaxLoopUs(void)
 {
     return s_ctx.max_loop_us;
+}
+
+void App_Scheduler_GetDiag(scheduler_diag_t *out)
+{
+    if (out != NULL) {
+        out->max_loop_us = s_ctx.max_loop_us;
+        out->late_tick_count = s_ctx.late_tick_count;
+        out->dropped_tick_count = s_ctx.dropped_tick_count;
+        out->max_pending_ticks = s_ctx.max_pending_ticks;
+    }
 }

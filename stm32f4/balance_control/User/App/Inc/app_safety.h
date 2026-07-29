@@ -39,6 +39,7 @@ typedef enum
 #define FAULT_SENSOR_MISMATCH (1U << 3U)
 #define FAULT_COMM_TIMEOUT    (1U << 4U)
 #define FAULT_ENCODER_INVALID (1U << 5U)
+#define FAULT_VISION_INVALID  (1U << 6U)
 
 /* -------------------------------------------------------------------------
  * 配置
@@ -47,6 +48,10 @@ typedef struct
 {
     int32_t  sensor_mismatch_threshold_mrad; /* ABZ 与电位器不一致阈值 */
     uint32_t sensor_mismatch_persist_ms;     /* 持续超限时间后进故障 */
+    uint32_t encoder_invalid_persist_ms;
+    uint32_t vision_invalid_persist_ms;
+    float    encoder_mrad_per_count;
+    bool     vision_required;
 } safety_cfg_t;
 
 /* -------------------------------------------------------------------------
