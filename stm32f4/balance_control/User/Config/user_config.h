@@ -18,6 +18,8 @@
 #define USER_OUTER_LOOP_HZ          (50U)
 #define USER_VISION_TIMEOUT_MS      (200U)
 #define USER_LIDAR_TIMEOUT_MS       (100U)
+#define USER_CHASSIS_LINK_TIMEOUT_MS (250U)
+#define USER_CHASSIS_START_ACK_TIMEOUT_MS (300U)
 
 /* 0: 仅使用磁编码器/电位器；1: 允许融合激光位置。 */
 #define USER_LIDAR_FUSION_ENABLE    (0U)

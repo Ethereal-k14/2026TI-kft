@@ -8,7 +8,7 @@ YOLO11n（或 YOLOv8n）模型，并导出为 K230 可部署的 `.kmodel`。
 ## 0. 环境准备
 
 ```bash
-cd /d/Destop/k230-project
+cd path/to/2026TI-kft/k230
 uv sync                      # 创建 venv + 安装训练/推理依赖（默认 CUDA cu121）
 uv run python tools/audit_workspace.py  # 一键审计环境完整性
 ```

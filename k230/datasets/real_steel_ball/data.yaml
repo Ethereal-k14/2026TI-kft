@@ -1,4 +1,4 @@
-path: D:/Destop/k230-project/datasets/real_steel_ball
+path: datasets/real_steel_ball
 train: coco128/images/train2017
 val: coco128/images/train2017
 names:

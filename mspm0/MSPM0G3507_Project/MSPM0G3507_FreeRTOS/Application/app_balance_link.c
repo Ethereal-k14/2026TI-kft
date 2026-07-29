@@ -8,6 +8,7 @@
 #include "app_line_track.h"
 #include "proto_uart1_a.h"
 #include "osal_api.h"
+#include "project_config.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
@@ -31,6 +32,8 @@ typedef struct {
     uint16_t tx_seq;
     uint16_t last_cmd_seq;
     uint32_t last_rx_ms;
+    bool remote_session;
+    bool watchdog_timeout;
 } balance_link_ctx_t;
 
 static balance_link_ctx_t s_link;
@@ -106,9 +109,21 @@ static void handle_frame(const uint8_t *frame, uint16_t len)
     if ((frame[3] == LINK_MSG_CMD) && (payload_len >= 2U)) {
         s_link.last_cmd_seq = (uint16_t)frame[6] | ((uint16_t)frame[7] << 8U);
         switch (frame[12]) {
-        case 0U: stop_chassis(false); break;
-        case 1U: app_protocol_user_line_track_request_start(); break;
-        case 2U: stop_chassis(true); break;
+        case 0U:
+            s_link.remote_session = false;
+            s_link.watchdog_timeout = false;
+            stop_chassis(false);
+            break;
+        case 1U:
+            s_link.watchdog_timeout = false;
+            s_link.remote_session = true;
+            app_protocol_user_line_track_request_start();
+            break;
+        case 2U:
+            s_link.remote_session = false;
+            s_link.watchdog_timeout = false;
+            stop_chassis(true);
+            break;
         default: break;
         }
     }
@@ -147,8 +162,10 @@ static void send_status(void)
     app_runtime_diag_t diag;
     const bool running = app_line_track_is_running();
     (void)app_runtime_diag_read(&diag);
-    p[0] = diag.fault_code != APP_RUNTIME_FAULT_NONE ? 2U : (running ? 1U : 0U);
-    put_u16(&p[1], (uint16_t)diag.fault_code);
+    p[0] = (diag.fault_code != APP_RUNTIME_FAULT_NONE ||
+            s_link.watchdog_timeout) ? 2U : (running ? 1U : 0U);
+    put_u16(&p[1], (uint16_t)diag.fault_code |
+                        (s_link.watchdog_timeout ? 0x8000U : 0U));
     put_u16(&p[3], s_link.last_cmd_seq);
     (void)send_frame(LINK_MSG_STATUS, p, sizeof(p));
 }
@@ -176,6 +193,12 @@ static void balance_link_task(void *arg)
     for (;;) {
         const uint32_t now = osal_ticks_to_ms(osal_get_tick_count());
         while (proto_uart1_a_getc(&byte) == BSP_OK) { feed_byte(byte); }
+        if (s_link.remote_session && (s_link.last_rx_ms != 0U) &&
+            ((now - s_link.last_rx_ms) > PRJ_BALANCE_LINK_WATCHDOG_MS)) {
+            s_link.remote_session = false;
+            s_link.watchdog_timeout = true;
+            stop_chassis(false);
+        }
         if ((now - last_imu) >= 20U) { last_imu = now; send_imu(); }
         if ((now - last_status) >= 100U) {
             last_status = now;

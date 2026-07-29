@@ -9,7 +9,7 @@
  *  - 限位开关触发（双边沿，断线 = 触发）
  *  - TMC2209 DIAG 上升沿
  *  - 传感器不一致（ABZ 与电位器角度超限）
- *  - 任意通信超时 > 配置阈值
+ *  - 视觉/反馈超时或底盘上报故障；单独的底盘 IMU 超时仅撤销前馈
  */
 #ifndef APP_SAFETY_H
 #define APP_SAFETY_H
@@ -40,6 +40,7 @@ typedef enum
 #define FAULT_COMM_TIMEOUT    (1U << 4U)
 #define FAULT_ENCODER_INVALID (1U << 5U)
 #define FAULT_VISION_INVALID  (1U << 6U)
+#define FAULT_CHASSIS_STATUS  (1U << 7U)
 
 /* -------------------------------------------------------------------------
  * 配置
@@ -59,6 +60,9 @@ typedef struct
  * ---------------------------------------------------------------------- */
 
 void App_Safety_Init(const safety_cfg_t *cfg);
+
+/** @brief 动态模式要求底盘链路就绪；静态阶跃模式可关闭。 */
+void App_Safety_SetChassisRequired(bool required);
 
 /** @brief 周期性检查（1 kHz 调用） */
 void App_Safety_Check(void);

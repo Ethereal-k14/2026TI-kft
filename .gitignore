@@ -1,0 +1,30 @@
+# Local IDE and editor state
+.idea/
+.vscode/
+*.user
+*.suo
+*.uvguix.*
+*.swp
+*~
+
+# Generated host-side state
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+**/htmlcov/
+*.log
+
+# Embedded build outputs (versioned release artifacts remain explicit exceptions)
+**/Objects/
+**/Listings/
+**/DebugConfig/
+
+# Local calibration, captures and acceptance records
+artifacts/
+captures/
+logs/
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

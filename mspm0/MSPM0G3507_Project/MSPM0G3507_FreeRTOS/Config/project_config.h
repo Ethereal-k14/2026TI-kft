@@ -778,6 +778,9 @@ extern "C" {
 #define PRJ_MOTOR_D_MOTION_ACTIVE    (1U)
 /* app_line_profile_t: 0=safe, 1=precision, 2=balanced, 3=fast. */
 #define PRJ_LINE_TRACK_DEFAULT_PROFILE (2U)
+
+/** STM32 remote-start session watchdog; two 10 Hz heartbeats may be missed. */
+#define PRJ_BALANCE_LINK_WATCHDOG_MS   (250U)
 #define PRJ_MOTION_MOTOR_ACTIVE_MASK \
     ((PRJ_MOTOR_A_MOTION_ACTIVE << 0) | \
      (PRJ_MOTOR_B_MOTION_ACTIVE << 1) | \

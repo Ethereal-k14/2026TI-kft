@@ -3,6 +3,7 @@
  * @brief   下位机通信模块实现
  */
 #include "app_chassis.h"
+#include "user_config.h"
 #include <string.h>
 #include <math.h>
 
@@ -16,6 +17,9 @@ typedef struct
     chassis_imu_t     imu;
     uint32_t          last_imu_ms;
     uint32_t          last_heartbeat_ms;
+    uint32_t          last_status_ms;
+    uint16_t          expected_start_seq;
+    bool              start_ack_pending;
     float             target_feedfwd_weight;
 } chassis_ctx_t;
 
@@ -37,6 +41,7 @@ static void chassis_rx_cb(proto_msg_id_t id,
                 s_ctx.status.state        = payload[0U];
                 s_ctx.status.fault_code   = (uint16_t)(payload[1U] | ((uint16_t)payload[2U] << 8U));
                 s_ctx.status.last_cmd_seq = (uint16_t)(payload[3U] | ((uint16_t)payload[4U] << 8U));
+                s_ctx.last_status_ms = HAL_GetTick();
             }
             break;
 
@@ -122,11 +127,18 @@ void App_Chassis_Process(void)
 bsp_err_t App_Chassis_SendCmd(chassis_cmd_t cmd, uint8_t reason)
 {
     uint8_t payload[2U];
+    bsp_err_t result;
     payload[0U] = (uint8_t)cmd;
     payload[1U] = reason;
-    return App_Protocol_Send(s_ctx.proto_ctx,
-                              MSG_CHASSIS_CMD,
-                              payload, (uint16_t)sizeof(payload));
+    result = App_Protocol_Send(s_ctx.proto_ctx, MSG_CHASSIS_CMD,
+                               payload, (uint16_t)sizeof(payload));
+    if ((result == BSP_OK) && (cmd == CHASSIS_CMD_START)) {
+        s_ctx.expected_start_seq = s_ctx.proto_ctx->tx_seq;
+        s_ctx.start_ack_pending = true;
+    } else if ((result == BSP_OK) && (cmd != CHASSIS_CMD_START)) {
+        s_ctx.start_ack_pending = false;
+    }
+    return result;
 }
 
 bsp_err_t App_Chassis_SendHeartbeat(void)
@@ -142,4 +154,28 @@ void App_Chassis_GetStatus(chassis_status_t *out)
 void App_Chassis_GetImu(chassis_imu_t *out)
 {
     if (out != NULL) { *out = s_ctx.imu; }
+}
+
+bool App_Chassis_IsLinkReady(void)
+{
+    return (s_ctx.last_heartbeat_ms != 0U) &&
+           ((HAL_GetTick() - s_ctx.last_heartbeat_ms) <=
+            USER_CHASSIS_LINK_TIMEOUT_MS);
+}
+
+bool App_Chassis_IsRunningConfirmed(void)
+{
+    return App_Chassis_IsHealthy() &&
+           s_ctx.start_ack_pending &&
+           (s_ctx.status.last_cmd_seq == s_ctx.expected_start_seq) &&
+           (s_ctx.status.state == 1U);
+}
+
+bool App_Chassis_IsHealthy(void)
+{
+    return App_Chassis_IsLinkReady() &&
+           (s_ctx.last_status_ms != 0U) &&
+           ((HAL_GetTick() - s_ctx.last_status_ms) <=
+            USER_CHASSIS_LINK_TIMEOUT_MS) &&
+           (s_ctx.status.fault_code == 0U);
 }

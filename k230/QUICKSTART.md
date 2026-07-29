@@ -8,8 +8,8 @@
 
 ```bash
 # 进入工程目录
-cd d:/Destop/k230-project     # Windows
-# cd /mnt/d/Destop/k230-project  # WSL2
+cd path/to/2026TI-kft/k230        # Windows PowerShell
+# cd /mnt/d/path/to/2026TI-kft/k230  # WSL2
 
 # 安装依赖（自动下载 Python 3.10 + 全部包）
 uv sync

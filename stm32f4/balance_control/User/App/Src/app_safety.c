@@ -28,6 +28,7 @@ typedef struct
     uint32_t        vision_invalid_start_ms;
     bool            encoder_invalid_active;
     bool            vision_invalid_active;
+    bool            chassis_required;
 } safety_ctx_t;
 
 static safety_ctx_t s_ctx;
@@ -37,6 +38,7 @@ static safety_ctx_t s_ctx;
  * ---------------------------------------------------------------------- */
 static void safety_do_estop(void)
 {
+    (void)App_Chassis_SendCmd(CHASSIS_CMD_ESTOP, 0xFFU);
     BSP_Stepper_EmergencyStop();
     App_Identification_Abort();
     App_Controller_Reset();
@@ -51,6 +53,7 @@ void App_Safety_Init(const safety_cfg_t *cfg)
 {
     (void)memset(&s_ctx, 0, sizeof(s_ctx));
     s_ctx.state = SAFETY_STATE_IDLE;
+    s_ctx.chassis_required = true;
 
     if (cfg != NULL)
     {
@@ -64,6 +67,13 @@ void App_Safety_Init(const safety_cfg_t *cfg)
         s_ctx.cfg.vision_invalid_persist_ms      = 120U;
         s_ctx.cfg.encoder_mrad_per_count         = 1.570796f;
         s_ctx.cfg.vision_required                = true;
+    }
+}
+
+void App_Safety_SetChassisRequired(bool required)
+{
+    if (s_ctx.state == SAFETY_STATE_IDLE) {
+        s_ctx.chassis_required = required;
     }
 }
 
@@ -187,14 +197,28 @@ void App_Safety_Check(void)
         {
             s_ctx.fault_mask &= ~FAULT_COMM_TIMEOUT;
         }
+
+        if (s_ctx.chassis_required)
+        {
+            chassis_status_t chassis;
+            App_Chassis_GetStatus(&chassis);
+            if (chassis.fault_code != 0U)
+            {
+                App_Safety_EmergencyStop(FAULT_CHASSIS_STATUS);
+                return;
+            }
+        }
     }
 }
 
 void App_Safety_EmergencyStop(uint32_t fault_mask)
 {
+    const bool first_transition = s_ctx.state != SAFETY_STATE_FAULT;
     s_ctx.fault_mask |= fault_mask;
     s_ctx.state       = SAFETY_STATE_FAULT;
-    safety_do_estop();
+    if (first_transition) {
+        safety_do_estop();
+    }
 }
 
 bool App_Safety_RequestStart(void)
@@ -214,7 +238,8 @@ bool App_Safety_RequestStart(void)
     BSP_Encoder_GetState(&enc);
     App_Estimator_GetState(&est);
     if (!(enc.index_valid || enc.pwm_valid) ||
-        (s_ctx.cfg.vision_required && !est.valid))
+        (s_ctx.cfg.vision_required && !est.valid) ||
+        (s_ctx.chassis_required && !App_Chassis_IsHealthy()))
     {
         return false;
     }
@@ -243,10 +268,30 @@ void App_Safety_ClearFault(void)
     key_limit_state_t ks;
     BSP_Key_GetState(&ks);
     stepper_state_t   st;
+    encoder_state_t enc;
+    estimator_state_t est;
+    sensor_sample_t adc;
     BSP_Stepper_GetState(&st);
+    BSP_Encoder_GetState(&enc);
+    App_Estimator_GetState(&est);
+    BSP_Adc_GetSample(&adc);
 
     bool hw_clear = (!ks.limit_min_active) && (!ks.limit_max_active) && (!st.diag_fault);
-    if (hw_clear)
+    bool feedback_clear = (enc.index_valid || enc.pwm_valid) &&
+        (!s_ctx.cfg.vision_required || est.valid) &&
+        (!s_ctx.chassis_required || App_Chassis_IsHealthy());
+    bool alignment_clear = true;
+    if (adc.valid && BSP_Adc_IsCalibrated() &&
+        (enc.index_valid || enc.pwm_valid))
+    {
+        const int32_t encoder_mrad = (int32_t)(
+            (float)enc.position_count * s_ctx.cfg.encoder_mrad_per_count);
+        int32_t diff = adc.value - encoder_mrad;
+        if (diff < 0) { diff = -diff; }
+        alignment_clear =
+            diff <= s_ctx.cfg.sensor_mismatch_threshold_mrad;
+    }
+    if (hw_clear && feedback_clear && alignment_clear)
     {
         s_ctx.fault_mask = 0U;
         s_ctx.state      = SAFETY_STATE_IDLE;

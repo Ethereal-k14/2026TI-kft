@@ -1,4 +1,4 @@
-path: D:/Destop/k230-project/datasets/test_pipeline_yolo11
+path: datasets/test_pipeline_yolo11
 train: images/train
 val: images/val
 names:

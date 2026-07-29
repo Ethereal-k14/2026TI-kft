@@ -64,7 +64,7 @@ k230-project/
 
 ```bash
 # 进入工程目录（本机实际位于 D 盘桌面）
-cd /d/Destop/k230-project
+cd path/to/2026TI-kft/k230
 
 # 用 uv 创建虚拟环境并安装依赖（首次会自动下载 Python 3.10 与依赖）
 uv sync

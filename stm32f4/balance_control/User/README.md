@@ -82,7 +82,7 @@ SPI 与 I²C OLED 后端均已提供，但运行时只选择一个；当前 `Use
 ### 3. STM32F407VET6 (LQFP100) 芯片适配说明
 
 1. **`.ioc` 文件已直接切至 STM32F407VET6**：
-   仓库根目录下的 [balance_control.ioc](file:///d:/Destop/test/26%E7%94%B5%E8%B5%9B/2026TI-kft/stm32f4/balance_control/balance_control.ioc) 已结合 ST 官方数据手册完成了修改，将目标芯片调整为 **STM32F407VET6 (LQFP100)**，可以直接使用 STM32CubeMX 打开并重新生成代码。
+   工程根目录下的 [balance_control.ioc](../balance_control.ioc) 已结合 ST 官方数据手册完成修改，将目标芯片调整为 **STM32F407VET6 (LQFP100)**，可以直接使用 STM32CubeMX 打开并重新生成代码。
 2. **引脚 100% 硬件兼容**：
    项目用到的所有 GPIO 引脚（`PA0~PA15`、`PB3~PB9`、`PC0`、`PC6~PC11`、`PD5~PD9`、`PE0~PE9`、`PH0~PH1`）在 **STM32F407VET6 (LQFP100)** 封装中全部存在且位置功能完全一致，**无需更改任何引脚分配**。
 3. **Flash / RAM 容量**：
@@ -93,7 +93,7 @@ SPI 与 I²C OLED 后端均已提供，但运行时只选择一个；当前 `Use
 
 ### 4. 打开与生成步骤
 
-1. 直接在 **STM32CubeMX** 中打开工程根目录下的 [balance_control.ioc](file:///d:/Destop/test/26%E7%94%B5%E8%B5%9B/2026TI-kft/stm32f4/balance_control/balance_control.ioc)。
+1. 直接在 **STM32CubeMX** 中打开工程根目录下的 [balance_control.ioc](../balance_control.ioc)。
 2. 确认 MCU 已自动识别为 `STM32F407VET6` (LQFP100 封装)，外设、时钟树、DMA、NVIC 参数无缝对应。
 3. 点击 **Generate Code** 重新生成工程即可！
 4. 在 Keil MDK-ARM 中确认 `Include Paths` 与 `User/` 源文件关联，运行 `Tools/check_user_layout.ps1` 校验全通过后直接编译烧录！

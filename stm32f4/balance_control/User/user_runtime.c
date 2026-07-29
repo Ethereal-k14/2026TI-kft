@@ -49,6 +49,8 @@ void User_Runtime_Init(void)
         (ball_ctrl_profile_t)USER_DEFAULT_BALL_PROFILE);
     App_Identification_Init();
     App_Safety_Init(NULL);
+    App_Safety_SetChassisRequired(
+        USER_START_ACTION == USER_START_ACTION_DYNAMIC);
     App_Debug_Init();
     App_Scheduler_Init();
 

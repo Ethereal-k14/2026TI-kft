@@ -76,6 +76,15 @@ void App_Chassis_GetStatus(chassis_status_t *out);
 /** @brief 读取 IMU 加速度数据（含有效性和权重） */
 void App_Chassis_GetImu(chassis_imu_t *out);
 
+/** @brief 最近 250 ms 内收到过底盘心跳。 */
+bool App_Chassis_IsLinkReady(void);
+
+/** @brief 心跳和状态均新鲜，且底盘未报告故障。 */
+bool App_Chassis_IsHealthy(void);
+
+/** @brief 最近的底盘状态已确认进入运行态且未报告故障。 */
+bool App_Chassis_IsRunningConfirmed(void);
+
 #ifdef __cplusplus
 }
 #endif

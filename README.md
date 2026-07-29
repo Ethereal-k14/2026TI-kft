@@ -10,20 +10,17 @@
 | `stm32f4/balance_control` | 视觉—物理估计、滚球—摆杆鲁棒串级控制、步进执行与安全 | `User/user_runtime.c` |
 | `k230/runtime` | 像素—物理位置标定、跳变门控、速度估计和视觉协议帧 | `ball_balance_link.py` |
 
-详细架构、接线、参数、标定和逐项验收见
-[`docs/H题系统集成与验收.md`](docs/H题系统集成与验收.md)。
+`SDM18/`、`WHEELTEC MS42CG…/` 和 `mspm0/MSPM0G3507_M0_Base/` 是供应商/上游
+只读参考，不参与当前比赛构建。完整文档入口见 [`docs/README.md`](docs/README.md)，
+目录所有权和交付规则见 [`docs/目录与交付规范.md`](docs/目录与交付规范.md)。
 
-快速软件验收：
+一键软件验收：
 
 ```powershell
-python k230\tests\test_ball_balance_link.py
-powershell -File mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Test\run_line_follower_host.ps1
-powershell -File mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Test\check_arm_syntax.ps1
-powershell -File stm32f4\balance_control\Tools\run_ball_control_tests.ps1
-powershell -File stm32f4\balance_control\Tools\check_ioc.ps1
-powershell -File stm32f4\balance_control\Tools\check_user_layout.ps1
-powershell -File stm32f4\balance_control\Tools\check_arm_syntax.ps1
+powershell -File tools\verify_all.ps1
 ```
 
-主机测试和语法检查不能替代实车方向确认、传感器标定、负载阶跃与赛道验收；
-未完成标定前应使用 `SAFE` 档位并架空驱动轮。
+该命令同时检查权威目录、禁止的生成物和三端接口常量漂移。主机测试和语法检查
+不能替代完整链接、实车方向确认、传感器标定、负载阶跃与赛道验收；未完成标定前
+应使用 `SAFE` 档位并架空驱动轮。详细流程见
+[`docs/H题系统集成与验收.md`](docs/H题系统集成与验收.md)。

@@ -43,6 +43,8 @@ typedef struct
     uint32_t max_loop_us;
     uint32_t late_tick_count;
     uint16_t max_pending_ticks;
+    bool chassis_start_pending;
+    uint32_t chassis_start_ms;
 } sched_ctx_t;
 
 static sched_ctx_t s_ctx;
@@ -125,7 +127,12 @@ void App_Scheduler_Run(void)
                 (void)App_Identification_Start();
             } else {
                 App_Controller_SetTargetPos(0);
-                (void)App_Chassis_SendCmd(CHASSIS_CMD_START, 0U);
+                if (App_Chassis_SendCmd(CHASSIS_CMD_START, 0U) == BSP_OK) {
+                    s_ctx.chassis_start_pending = true;
+                    s_ctx.chassis_start_ms = HAL_GetTick();
+                } else {
+                    App_Safety_EmergencyStop(FAULT_COMM_TIMEOUT);
+                }
             }
         }
     }
@@ -148,6 +155,18 @@ void App_Scheduler_Run(void)
         App_Vision_Process();
         BSP_Lidar_Process();
         App_Estimator_Update();
+        if (s_ctx.chassis_start_pending) {
+            if (App_Chassis_IsRunningConfirmed()) {
+                s_ctx.chassis_start_pending = false;
+            } else if ((HAL_GetTick() - s_ctx.chassis_start_ms) >=
+                       USER_CHASSIS_START_ACK_TIMEOUT_MS) {
+                s_ctx.chassis_start_pending = false;
+                App_Safety_EmergencyStop(FAULT_CHASSIS_STATUS);
+            }
+        }
+        if (!App_Safety_IsRunning()) {
+            s_ctx.chassis_start_pending = false;
+        }
     }
 
     /* ---- 50 Hz 任务：外环 PID ---- */
