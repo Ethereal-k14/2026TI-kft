@@ -2,7 +2,7 @@
 
 ## 1. 适用范围
 
-本文档对应 `STM32F407ZGT6`、LQFP144 主控和 8 MHz 无源外部晶振，约束 CubeMX 外设配置、模块边界、通信协议、闭环调度和生成代码后的实施顺序。固件采用 STM32 HAL、无 RTOS、MISRA C:2012 风格；中断只搬运数据和更新时间戳，不在中断中解析协议或执行浮点控制。
+本文档对应 `STM32F407ZGT6` (LQFP144) 及 `STM32F407VET6` (LQFP100) 主控和 8 MHz 无源外部晶振，约束 CubeMX 外设配置、模块边界、通信协议、闭环调度和生成代码后的实施顺序。固件采用 STM32 HAL、无 RTOS、MISRA C:2012 风格；中断只搬运数据和更新时间戳，不在中断中解析协议或执行浮点控制。引脚使用范围完全在 LQFP100 包含范围内，无缝支持移植。
 
 时钟使用 PH0/PH1 的 HSE Crystal/Ceramic Resonator 模式：8 MHz ÷ PLLM 4 × PLLN 168 ÷ PLLP 2 = 168 MHz。AHB=168 MHz，APB1=42 MHz（定时器84 MHz），APB2=84 MHz（定时器168 MHz），PLLQ=7得到48 MHz。晶振必须按所选器件的负载电容和PCB寄生重新计算两侧电容，不能把有源时钟的 Bypass 模式用于无源晶振。
 
@@ -95,23 +95,22 @@ START_KEY 稳定按下 20 ms 后只产生一次边沿事件；主控发送启动
 
 ## 5. 驱动和模块边界
 
-建议目录保持三层，不允许控制器直接访问 HAL 句柄。当前仓库已将非生成代码归档到 `User/`，旧目录只保留兼容头文件：
+建议目录保持三层，不允许控制器直接访问 HAL 句柄。工程已将非生成代码全部收口归档到 `User/` 唯一主目录，消除了根目录历史重叠目录：
 
 ```text
-Core/                 CubeMX 生成代码与启动入口（禁止手工搬移）
-User/Bsp/             ADC、encoder、stepper、UART DMA、OLED、key/limit
+Core/                 CubeMX 生成代码与启动入口（由 CubeMX 管理）
+User/Bsp/             ADC、encoder、stepper、UART DMA、OLED、key/limit 驱动
 User/App/             estimator、controller、safety、scheduler、业务模块
 User/Protocol/        通用协议编解码及帧定义
-User/Config/          用户编译期配置
+User/Config/          用户编译期配置 (user_config.h)
 User/user_runtime.*   业务组合根（Core 只依赖此入口）
 User/user_isr.*       中断事件窄适配（只转发，不做业务计算）
-Bsp/、App/            兼容 include 入口，不再放置实现
 ```
 
 编译器必须加入 `User`、`User/Bsp/Inc`、`User/App/Inc`、`User/Protocol/Inc` 和
-`User/Config`；源文件只加入 `User/Bsp/Src`、`User/App/Src`、
-`User/Protocol/Src` 以及 `User/user_runtime.c`、`User/user_isr.c`。不要同时
-加入旧目录中的实现副本。CubeMX 重新生成时只允许覆盖 `Core/`，不得把
+`User/Config` 五个包含路径；源文件只加入 `User/Bsp/Src`、`User/App/Src`、
+`User/Protocol/Src` 以及 `User/user_runtime.c`、`User/user_isr.c`。
+CubeMX 重新生成时只允许覆盖 `Core/` 与 `Drivers/`，不得把
 `User/` 设置为生成目录。
 
 启用 ADC1 后，Keil 工程还必须包含 HAL 驱动源

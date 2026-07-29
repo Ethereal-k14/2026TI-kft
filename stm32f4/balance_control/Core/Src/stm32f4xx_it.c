@@ -22,7 +22,6 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "user_isr.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,11 +56,10 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_spi1_tx;
-extern DMA_HandleTypeDef hdma_adc1;
 extern SPI_HandleTypeDef hspi1;
+extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim8;
-extern TIM_HandleTypeDef htim5;
 extern DMA_HandleTypeDef hdma_uart4_rx;
 extern DMA_HandleTypeDef hdma_uart4_tx;
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -320,12 +318,7 @@ void SPI1_IRQHandler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-  /* IDLE 检测：通知 BSP_UartDma 更新写指针 */
-  if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE))
-  {
-    __HAL_UART_CLEAR_IDLEFLAG(&huart1);
-    User_Isr_OnUartIdle(USER_ISR_PORT_DEBUG);
-  }
+
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
@@ -339,11 +332,7 @@ void USART1_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
   /* USER CODE BEGIN USART2_IRQn 0 */
-  if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE))
-  {
-    __HAL_UART_CLEAR_IDLEFLAG(&huart2);
-    User_Isr_OnUartIdle(USER_ISR_PORT_CHASSIS);
-  }
+
   /* USER CODE END USART2_IRQn 0 */
   HAL_UART_IRQHandler(&huart2);
   /* USER CODE BEGIN USART2_IRQn 1 */
@@ -357,11 +346,7 @@ void USART2_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
   /* USER CODE BEGIN USART3_IRQn 0 */
-  if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_IDLE))
-  {
-    __HAL_UART_CLEAR_IDLEFLAG(&huart3);
-    User_Isr_OnUartIdle(USER_ISR_PORT_VISION);
-  }
+
   /* USER CODE END USART3_IRQn 0 */
   HAL_UART_IRQHandler(&huart3);
   /* USER CODE BEGIN USART3_IRQn 1 */
@@ -384,16 +369,26 @@ void TIM8_UP_TIM13_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles TIM5 global interrupt.
+  */
+void TIM5_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM5_IRQn 0 */
+
+  /* USER CODE END TIM5_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim5);
+  /* USER CODE BEGIN TIM5_IRQn 1 */
+
+  /* USER CODE END TIM5_IRQn 1 */
+}
+
+/**
   * @brief This function handles UART4 global interrupt.
   */
 void UART4_IRQHandler(void)
 {
   /* USER CODE BEGIN UART4_IRQn 0 */
-  if (__HAL_UART_GET_FLAG(&huart4, UART_FLAG_IDLE))
-  {
-    __HAL_UART_CLEAR_IDLEFLAG(&huart4);
-    User_Isr_OnUartIdle(USER_ISR_PORT_LIDAR);
-  }
+
   /* USER CODE END UART4_IRQn 0 */
   HAL_UART_IRQHandler(&huart4);
   /* USER CODE BEGIN UART4_IRQn 1 */
@@ -407,21 +402,12 @@ void UART4_IRQHandler(void)
 void TIM6_DAC_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
-  /* 调度器 ISR：仅设置标志，不执行任务逻辑 */
-  User_Isr_OnSchedulerTick();
+
   /* USER CODE END TIM6_DAC_IRQn 0 */
   HAL_TIM_IRQHandler(&htim6);
   /* USER CODE BEGIN TIM6_DAC_IRQn 1 */
 
   /* USER CODE END TIM6_DAC_IRQn 1 */
-}
-
-/**
-  * @brief TIM5 global interrupt (PWM-input capture).
-  */
-void TIM5_IRQHandler(void)
-{
-  HAL_TIM_IRQHandler(&htim5);
 }
 
 /**
@@ -481,45 +467,5 @@ void DMA2_Stream7_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
-/* EXTI 中断转发 */
-/**
- * @brief START_KEY PE0 下降沿
- */
-void EXTI0_IRQHandler(void)
-{
-  HAL_GPIO_EXTI_IRQHandler(START_KEY_Pin);
-  User_Isr_OnStartKey();
-}
 
-/**
- * @brief LIMIT_MIN(PE5) / LIMIT_MAX(PE6) / TMC_DIAG(PC9) 双边沿/上升沿
- */
-void EXTI9_5_IRQHandler(void)
-{
-  uint32_t pending = EXTI->PR;
-  HAL_GPIO_EXTI_IRQHandler(LIMIT_MIN_Pin);
-  HAL_GPIO_EXTI_IRQHandler(LIMIT_MAX_Pin);
-  HAL_GPIO_EXTI_IRQHandler(TMC_DIAG_Pin);
-  if ((pending & LIMIT_MIN_Pin) != 0U)
-  {
-    User_Isr_OnLimitMin();
-  }
-  if ((pending & LIMIT_MAX_Pin) != 0U)
-  {
-    User_Isr_OnLimitMax();
-  }
-  if ((pending & TMC_DIAG_Pin) != 0U)
-  {
-    User_Isr_OnStepperDiag();
-  }
-}
-
-/**
- * @brief 磁编码器 Z 相 PB4 上升沿 (EXTI4)
- */
-void EXTI4_IRQHandler(void)
-{
-  HAL_GPIO_EXTI_IRQHandler(MAG_ENC_Z_Pin);
-  User_Isr_OnEncoderIndex();
-}
 /* USER CODE END 1 */

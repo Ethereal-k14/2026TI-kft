@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "stm32f4xx_hal.h"
-#include "../../Config/user_config.h"
+#include "user_config.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -67,6 +67,8 @@ void Error_Handler(void);
 #define LIMIT_MIN_GPIO_Port GPIOE
 #define LIMIT_MAX_Pin GPIO_PIN_6
 #define LIMIT_MAX_GPIO_Port GPIOE
+#define MAG_PWM_Pin GPIO_PIN_0
+#define MAG_PWM_GPIO_Port GPIOA
 #define OLED_SPI_SCK_Pin GPIO_PIN_5
 #define OLED_SPI_SCK_GPIO_Port GPIOA
 #define OLED_SPI_MISO_UNUSED_Pin GPIO_PIN_6

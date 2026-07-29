@@ -34,9 +34,9 @@ foreach ($requiredSource in @('../Core/Src/adc.c',
 }
 
 foreach ($legacyDir in @('App', 'Bsp')) {
-    $legacySources = @(Get-ChildItem -LiteralPath (Join-Path $root $legacyDir) -Recurse -Filter '*.c' -ErrorAction SilentlyContinue)
-    if ($legacySources.Count -ne 0) {
-        $errors.Add("Legacy directory contains implementation sources: $legacyDir")
+    $legacyPath = Join-Path $root $legacyDir
+    if (Test-Path -LiteralPath $legacyPath) {
+        $errors.Add("Legacy directory exists in root: $legacyDir (All user components must reside under User/)")
     }
 }
 
