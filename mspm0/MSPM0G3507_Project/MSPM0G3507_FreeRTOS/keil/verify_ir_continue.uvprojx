@@ -466,6 +466,16 @@
               <FilePath>..\Application\Algorithm\app_line_follower.h</FilePath>
             </File>
             <File>
+              <FileName>app_imu_kinematics.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Algorithm\app_imu_kinematics.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_imu_kinematics.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Application\Algorithm\app_imu_kinematics.h</FilePath>
+            </File>
+            <File>
               <FileName>app_feedforward.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Application\Algorithm\app_feedforward.c</FilePath>
@@ -1666,6 +1676,16 @@
               <FileName>app_line_follower.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Application\Algorithm\app_line_follower.h</FilePath>
+            </File>
+            <File>
+              <FileName>app_imu_kinematics.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Application\Algorithm\app_imu_kinematics.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_imu_kinematics.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Application\Algorithm\app_imu_kinematics.h</FilePath>
             </File>
             <File>
               <FileName>app_feedforward.c</FileName>

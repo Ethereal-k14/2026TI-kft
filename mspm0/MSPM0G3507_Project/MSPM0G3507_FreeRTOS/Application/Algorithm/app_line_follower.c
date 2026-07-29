@@ -1,6 +1,6 @@
 /**
  * @file app_line_follower.c
- * @brief Bounded PID-like line follower with yaw damping and slew limiting.
+ * @brief Line follower with yaw damping and jerk/curvature constrained planning.
  */
 #include "app_line_follower.h"
 #include <math.h>
@@ -14,14 +14,39 @@ static float clampf(float value, float low, float high)
     return value;
 }
 
-static float slew(float current, float target, float max_delta)
+static float jerk_limited_step(float current, float target, float dt_s,
+                               float accel_limit, float jerk_limit,
+                               float *accel)
 {
-    return current + clampf(target - current, -max_delta, max_delta);
+    float desired_accel = clampf((target - current) / dt_s,
+                                 -accel_limit, accel_limit);
+    float next;
+    *accel += clampf(desired_accel - *accel,
+                     -jerk_limit * dt_s, jerk_limit * dt_s);
+    next = current + *accel * dt_s;
+    if (((target - current) * (target - next)) <= 0.0f) {
+        next = target;
+        *accel = 0.0f;
+    }
+    return next;
 }
 
 static bool cfg_valid(const app_line_follower_cfg_t *cfg)
 {
     return (cfg != NULL) &&
+           isfinite(cfg->base_speed_mm_s) &&
+           isfinite(cfg->min_speed_mm_s) &&
+           isfinite(cfg->max_speed_mm_s) &&
+           isfinite(cfg->steer_kp) && isfinite(cfg->steer_ki) &&
+           isfinite(cfg->steer_kd) && isfinite(cfg->yaw_damping) &&
+           isfinite(cfg->error_filter_alpha) &&
+           isfinite(cfg->integral_limit) &&
+           isfinite(cfg->accel_limit_mm_s2) &&
+           isfinite(cfg->jerk_limit_mm_s3) &&
+           isfinite(cfg->steer_limit_mm_s) &&
+           isfinite(cfg->track_width_mm) &&
+           isfinite(cfg->max_lateral_accel_mm_s2) &&
+           isfinite(cfg->max_yaw_rate_dps) &&
            (cfg->min_speed_mm_s >= 0.0f) &&
            (cfg->base_speed_mm_s >= cfg->min_speed_mm_s) &&
            (cfg->max_speed_mm_s >= cfg->base_speed_mm_s) &&
@@ -29,15 +54,31 @@ static bool cfg_valid(const app_line_follower_cfg_t *cfg)
            (cfg->error_filter_alpha <= 1.0f) &&
            (cfg->integral_limit >= 0.0f) &&
            (cfg->accel_limit_mm_s2 > 0.0f) &&
-           (cfg->steer_limit_mm_s > 0.0f);
+           (cfg->jerk_limit_mm_s3 > 0.0f) &&
+           (cfg->steer_limit_mm_s > 0.0f) &&
+           (cfg->track_width_mm > 0.0f) &&
+           (cfg->max_lateral_accel_mm_s2 > 0.0f) &&
+           (cfg->max_yaw_rate_dps > 0.0f);
 }
 
 static app_line_follower_cfg_t profile_cfg(app_line_profile_t profile)
 {
     app_line_follower_cfg_t cfg = {
-        420.0f, 220.0f, 520.0f,
-        135.0f, 0.0f, 0.12f, 0.8f,
-        0.55f, 0.8f, 1200.0f, 300.0f
+        .base_speed_mm_s = 420.0f,
+        .min_speed_mm_s = 220.0f,
+        .max_speed_mm_s = 520.0f,
+        .steer_kp = 135.0f,
+        .steer_ki = 0.0f,
+        .steer_kd = 0.12f,
+        .yaw_damping = 0.8f,
+        .error_filter_alpha = 0.55f,
+        .integral_limit = 0.8f,
+        .accel_limit_mm_s2 = 1200.0f,
+        .jerk_limit_mm_s3 = 5000.0f,
+        .steer_limit_mm_s = 300.0f,
+        .track_width_mm = 190.0f,
+        .max_lateral_accel_mm_s2 = 650.0f,
+        .max_yaw_rate_dps = 140.0f
     };
 
     switch (profile) {
@@ -46,6 +87,9 @@ static app_line_follower_cfg_t profile_cfg(app_line_profile_t profile)
         cfg.min_speed_mm_s = 120.0f;
         cfg.max_speed_mm_s = 280.0f;
         cfg.accel_limit_mm_s2 = 600.0f;
+        cfg.jerk_limit_mm_s3 = 2500.0f;
+        cfg.max_lateral_accel_mm_s2 = 350.0f;
+        cfg.max_yaw_rate_dps = 100.0f;
         break;
     case APP_LINE_PROFILE_PRECISION:
         cfg.base_speed_mm_s = 300.0f;
@@ -53,6 +97,9 @@ static app_line_follower_cfg_t profile_cfg(app_line_profile_t profile)
         cfg.max_speed_mm_s = 380.0f;
         cfg.steer_kp = 150.0f;
         cfg.accel_limit_mm_s2 = 800.0f;
+        cfg.jerk_limit_mm_s3 = 3500.0f;
+        cfg.max_lateral_accel_mm_s2 = 500.0f;
+        cfg.max_yaw_rate_dps = 120.0f;
         break;
     case APP_LINE_PROFILE_FAST:
         cfg.base_speed_mm_s = 500.0f;
@@ -60,6 +107,9 @@ static app_line_follower_cfg_t profile_cfg(app_line_profile_t profile)
         cfg.max_speed_mm_s = 620.0f;
         cfg.steer_kp = 145.0f;
         cfg.accel_limit_mm_s2 = 1600.0f;
+        cfg.jerk_limit_mm_s3 = 9000.0f;
+        cfg.max_lateral_accel_mm_s2 = 850.0f;
+        cfg.max_yaw_rate_dps = 180.0f;
         break;
     case APP_LINE_PROFILE_BALANCED:
     default:
@@ -122,7 +172,13 @@ bool app_line_follower_step(app_line_follower_t *ctx,
     float derivative;
     float steering;
     float base_speed;
-    float max_delta;
+    float yaw_rate_rad_s;
+    float measured_yaw_rate_rad_s;
+    float effective_yaw_rate_rad_s;
+    float curve_speed_limit;
+    float yaw_steer_limit;
+    float target_left;
+    float target_right;
     float dt_s;
     uint8_t sensor_bits = 0U;
 
@@ -172,6 +228,10 @@ bool app_line_follower_step(app_line_follower_t *ctx,
     steering = clampf(steering, -ctx->cfg.steer_limit_mm_s,
                       ctx->cfg.steer_limit_mm_s);
 
+    yaw_steer_limit = 0.5f * ctx->cfg.track_width_mm *
+        ctx->cfg.max_yaw_rate_dps * 0.01745329251994329577f;
+    steering = clampf(steering, -yaw_steer_limit, yaw_steer_limit);
+
     base_speed = ctx->cfg.base_speed_mm_s -
         ((ctx->cfg.base_speed_mm_s - ctx->cfg.min_speed_mm_s) *
          clampf(fabsf(ctx->filtered_error), 0.0f, 1.0f));
@@ -180,20 +240,52 @@ bool app_line_follower_step(app_line_follower_t *ctx,
     }
     base_speed = clampf(base_speed, 0.0f, ctx->cfg.max_speed_mm_s);
 
-    max_delta = ctx->cfg.accel_limit_mm_s2 * dt_s;
-    ctx->left_speed_mm_s = slew(ctx->left_speed_mm_s,
-        clampf(base_speed - steering, -ctx->cfg.max_speed_mm_s,
-               ctx->cfg.max_speed_mm_s), max_delta);
-    ctx->right_speed_mm_s = slew(ctx->right_speed_mm_s,
-        clampf(base_speed + steering, -ctx->cfg.max_speed_mm_s,
-               ctx->cfg.max_speed_mm_s), max_delta);
+    yaw_rate_rad_s = (2.0f * steering) / ctx->cfg.track_width_mm;
+    measured_yaw_rate_rad_s = fabsf(input->yaw_rate_dps) *
+                              0.01745329251994329577f;
+    effective_yaw_rate_rad_s = fabsf(yaw_rate_rad_s);
+    if (measured_yaw_rate_rad_s > effective_yaw_rate_rad_s) {
+        effective_yaw_rate_rad_s = measured_yaw_rate_rad_s;
+    }
+    curve_speed_limit = ctx->cfg.max_speed_mm_s;
+    if (effective_yaw_rate_rad_s > 0.01f) {
+        curve_speed_limit = ctx->cfg.max_lateral_accel_mm_s2 /
+                            effective_yaw_rate_rad_s;
+        curve_speed_limit = clampf(curve_speed_limit, 0.0f,
+                                   ctx->cfg.max_speed_mm_s);
+        if (base_speed > curve_speed_limit) {
+            base_speed = curve_speed_limit;
+        }
+    }
+
+    target_left = clampf(base_speed - steering, -ctx->cfg.max_speed_mm_s,
+                         ctx->cfg.max_speed_mm_s);
+    target_right = clampf(base_speed + steering, -ctx->cfg.max_speed_mm_s,
+                          ctx->cfg.max_speed_mm_s);
+    ctx->left_speed_mm_s = jerk_limited_step(ctx->left_speed_mm_s,
+        target_left, dt_s, ctx->cfg.accel_limit_mm_s2,
+        ctx->cfg.jerk_limit_mm_s3, &ctx->left_accel_mm_s2);
+    ctx->right_speed_mm_s = jerk_limited_step(ctx->right_speed_mm_s,
+        target_right, dt_s, ctx->cfg.accel_limit_mm_s2,
+        ctx->cfg.jerk_limit_mm_s3, &ctx->right_accel_mm_s2);
+    ctx->left_speed_mm_s = clampf(ctx->left_speed_mm_s,
+        -ctx->cfg.max_speed_mm_s, ctx->cfg.max_speed_mm_s);
+    ctx->right_speed_mm_s = clampf(ctx->right_speed_mm_s,
+        -ctx->cfg.max_speed_mm_s, ctx->cfg.max_speed_mm_s);
 
     output->left_speed_mm_s = ctx->left_speed_mm_s;
     output->right_speed_mm_s = ctx->right_speed_mm_s;
     output->base_speed_mm_s = base_speed;
     output->steering_mm_s = steering;
+    output->left_accel_mm_s2 = ctx->left_accel_mm_s2;
+    output->right_accel_mm_s2 = ctx->right_accel_mm_s2;
+    output->curve_speed_limit_mm_s = curve_speed_limit;
+    output->target_yaw_rate_dps = yaw_rate_rad_s * 57.29577951308232f;
     output->line_error = ctx->filtered_error;
     output->lost_ms = ctx->lost_ms;
     output->sensor_bits = sensor_bits;
+    output->planner_limited = (curve_speed_limit + 0.01f <
+                               ctx->cfg.max_speed_mm_s) ||
+                              (fabsf(steering) + 0.01f >= yaw_steer_limit);
     return true;
 }

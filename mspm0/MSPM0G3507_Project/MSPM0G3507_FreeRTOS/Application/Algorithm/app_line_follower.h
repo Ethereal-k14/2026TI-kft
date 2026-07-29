@@ -32,7 +32,11 @@ typedef struct {
     float error_filter_alpha;
     float integral_limit;
     float accel_limit_mm_s2;
+    float jerk_limit_mm_s3;
     float steer_limit_mm_s;
+    float track_width_mm;
+    float max_lateral_accel_mm_s2;
+    float max_yaw_rate_dps;
 } app_line_follower_cfg_t;
 
 typedef struct {
@@ -46,11 +50,16 @@ typedef struct {
     float right_speed_mm_s;
     float base_speed_mm_s;
     float steering_mm_s;
+    float left_accel_mm_s2;
+    float right_accel_mm_s2;
+    float curve_speed_limit_mm_s;
+    float target_yaw_rate_dps;
     float line_error;
     uint32_t lost_ms;
     uint8_t sensor_bits; /* bit3=left; 0=black, 1=white */
     bool line_detected;
     bool cross_detected;
+    bool planner_limited;
 } app_line_follower_output_t;
 
 typedef struct {
@@ -60,6 +69,8 @@ typedef struct {
     float error_integral;
     float left_speed_mm_s;
     float right_speed_mm_s;
+    float left_accel_mm_s2;
+    float right_accel_mm_s2;
     uint32_t lost_ms;
     bool initialized;
 } app_line_follower_t;

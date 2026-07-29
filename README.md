@@ -6,7 +6,7 @@
 
 | 目录 | 职责 | 主入口 |
 |---|---|---|
-| `mspm0/MSPM0G3507_Project/MSPM0G3507_FreeRTOS` | M1/M4 两轮差速、四路红外、轮速编码器、IMU、单圈状态机 | `Application/app_main.c` |
+| `mspm0/MSPM0G3507_Project/MSPM0G3507_FreeRTOS` | M1/M4 两轮差速、四路红外、轮速编码器、IMU 安装/偏心补偿、S 曲线速度规划、单圈状态机 | `Application/app_main.c` |
 | `stm32f4/balance_control` | 视觉—物理估计、滚球—摆杆鲁棒串级控制、步进执行与安全 | `User/user_runtime.c` |
 | `k230/runtime` | 像素—物理位置标定、跳变门控、速度估计和视觉协议帧 | `ball_balance_link.py` |
 

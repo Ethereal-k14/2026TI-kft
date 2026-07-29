@@ -15,12 +15,14 @@
 #include "bsp_timer.h"
 #include "spi_bridge.h"
 #include "app_test_runner.h"
+#include "app_imu_kinematics.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>   /* sqrtf, 用于跳变诊断 acc_norm 计算 */
 
 /* LSM6DSR BSP 上下文 (静态分配) */
 static bsp_lsm6dsr_ctx_t g_imu_ctx;
+static app_imu_kinematics_t g_imu_kinematics;
 
 /* 初始化标志 */
 static uint8_t g_imu_initialized = 0;
@@ -36,6 +38,23 @@ static uint32_t g_kf_filter_buf[PRJ_IMU_KF_FILTER_BUF_SIZE / sizeof(uint32_t)];
  */
 static int imu_init(void)
 {
+    app_imu_kinematics_cfg_t kinematics_cfg = {
+        .body_from_sensor = {
+            {PRJ_IMU_R_BS_00, PRJ_IMU_R_BS_01, PRJ_IMU_R_BS_02},
+            {PRJ_IMU_R_BS_10, PRJ_IMU_R_BS_11, PRJ_IMU_R_BS_12},
+            {PRJ_IMU_R_BS_20, PRJ_IMU_R_BS_21, PRJ_IMU_R_BS_22}
+        },
+        .gyro_bias_body_dps = {
+            PRJ_IMU_GYRO_BIAS_X_DPS,
+            PRJ_IMU_GYRO_BIAS_Y_DPS,
+            PRJ_IMU_GYRO_BIAS_Z_DPS
+        },
+        .offset_body_m = {
+            PRJ_IMU_OFFSET_X_M, PRJ_IMU_OFFSET_Y_M, PRJ_IMU_OFFSET_Z_M
+        },
+        .angular_accel_alpha = PRJ_IMU_YAW_ACCEL_ALPHA,
+        .max_angular_accel_rad_s2 = PRJ_IMU_MAX_YAW_ACCEL_RAD_S2
+    };
 #if (PRJ_IMU_STARTUP_DIAG_ENABLE != 0U)
     printf("[IMU-DIAG] task entered tick_ms=%lu\r\n",
            (unsigned long)osal_ticks_to_ms(osal_get_tick_count()));
@@ -114,6 +133,10 @@ static int imu_init(void)
         printf("[INFO] KF params configured from project_config.h\r\n");
     }
     
+    if (!app_imu_kinematics_init(&g_imu_kinematics, &kinematics_cfg)) {
+        printf("[ERROR] invalid IMU mounting calibration\r\n");
+        return -1;
+    }
     g_imu_initialized = 1;
     return 0;
 }
@@ -141,6 +164,9 @@ void app_imu_task(void *param)
 {
     app_shared_ctx_t *ctx = (app_shared_ctx_t *)param;
     bsp_lsm6dsr_data_t data;
+    app_imu_kinematics_input_t kinematics_input;
+    app_imu_kinematics_output_t kinematics_output;
+    uint32_t previous_imu_timestamp_ms = 0U;
 
     if (ctx == NULL) {
         osal_task_delete(NULL);
@@ -160,6 +186,24 @@ void app_imu_task(void *param)
         loop_count++;
         
         if (g_imu_initialized && bsp_lsm6dsr_update_ctx(&g_imu_ctx, &data) == 0) {
+            const uint32_t timestamp_ms =
+                osal_ticks_to_ms(osal_get_tick_count());
+            kinematics_input.accel_sensor_m_s2[0] = data.ax;
+            kinematics_input.accel_sensor_m_s2[1] = data.ay;
+            kinematics_input.accel_sensor_m_s2[2] = data.az;
+            kinematics_input.gyro_sensor_dps[0] = data.gx;
+            kinematics_input.gyro_sensor_dps[1] = data.gy;
+            kinematics_input.gyro_sensor_dps[2] = data.gz;
+            kinematics_input.dt_s = (previous_imu_timestamp_ms == 0U) ?
+                ((float)PRJ_IMU_TASK_PERIOD_MS * 0.001f) :
+                ((float)(timestamp_ms - previous_imu_timestamp_ms) * 0.001f);
+            previous_imu_timestamp_ms = timestamp_ms;
+            if (!app_imu_kinematics_step(&g_imu_kinematics,
+                                         &kinematics_input,
+                                         &kinematics_output)) {
+                osal_task_delay_ms(PRJ_IMU_TASK_PERIOD_MS);
+                continue;
+            }
             OSAL_CRITICAL_SECTION {
                 /* 姿态角 */
                 ctx->imu.roll       = data.roll;
@@ -167,21 +211,21 @@ void app_imu_task(void *param)
                 ctx->imu.yaw        = data.yaw;
                 
                 /* 加速度 (m/s² → g) */
-                ctx->imu.accel_x_g  = data.ax / PRJ_GRAVITY_MS2;
-                ctx->imu.accel_y_g  = data.ay / PRJ_GRAVITY_MS2;
-                ctx->imu.accel_z_g  = data.az / PRJ_GRAVITY_MS2;
+                ctx->imu.accel_x_g  = kinematics_output.accel_body_centre_m_s2[0] / PRJ_GRAVITY_MS2;
+                ctx->imu.accel_y_g  = kinematics_output.accel_body_centre_m_s2[1] / PRJ_GRAVITY_MS2;
+                ctx->imu.accel_z_g  = kinematics_output.accel_body_centre_m_s2[2] / PRJ_GRAVITY_MS2;
                 
                 /* 角速度 (dps) */
-                ctx->imu.gyro_x_dps = data.gx;
-                ctx->imu.gyro_y_dps = data.gy;
-                ctx->imu.gyro_z_dps = data.gz;
+                ctx->imu.gyro_x_dps = kinematics_output.gyro_body_dps[0];
+                ctx->imu.gyro_y_dps = kinematics_output.gyro_body_dps[1];
+                ctx->imu.gyro_z_dps = kinematics_output.gyro_body_dps[2];
+                ctx->imu.yaw_accel_rad_s2 = kinematics_output.yaw_angular_accel_rad_s2;
+                ctx->imu.lever_accel_x_g = kinematics_output.lever_correction_m_s2[0] / PRJ_GRAVITY_MS2;
                 
                 /* 温度 */
                 ctx->imu.temperature = data.temperature;
+                ctx->imu.timestamp_ms = timestamp_ms;
             }
-            
-            /* 时间戳 (OSAL tick, 不需要在临界区内) */
-            ctx->imu.timestamp_ms = osal_ticks_to_ms(osal_get_tick_count());
             {
 
             /* Test runner: feed attitude data and poll timeout. */

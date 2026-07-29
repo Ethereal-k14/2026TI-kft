@@ -74,8 +74,20 @@ extern "C" {
 #ifndef LINE_TRACK_ACCEL_LIMIT_MM_S2
 #define LINE_TRACK_ACCEL_LIMIT_MM_S2    (1200.0f)
 #endif
+#ifndef LINE_TRACK_JERK_LIMIT_MM_S3
+#define LINE_TRACK_JERK_LIMIT_MM_S3     (5000.0f)
+#endif
 #ifndef LINE_TRACK_STEER_LIMIT_MM_S
 #define LINE_TRACK_STEER_LIMIT_MM_S     (300.0f)
+#endif
+#ifndef LINE_TRACK_WIDTH_MM
+#define LINE_TRACK_WIDTH_MM             (190.0f)
+#endif
+#ifndef LINE_TRACK_MAX_LATERAL_ACCEL_MM_S2
+#define LINE_TRACK_MAX_LATERAL_ACCEL_MM_S2 (650.0f)
+#endif
+#ifndef LINE_TRACK_MAX_YAW_RATE_DPS
+#define LINE_TRACK_MAX_YAW_RATE_DPS     (140.0f)
 #endif
 
 /*
@@ -158,7 +170,12 @@ typedef struct {
     bool turn90_active;         /* 直角弯记忆是否有效。 */
     float line_error;           /* 归一化横向误差，左偏为正，范围约 -1..1。 */
     float steering_mm_s;        /* 左右轮差速量，单位 mm/s。 */
+    float left_accel_mm_s2;     /* S 曲线规划后的左轮目标加速度。 */
+    float right_accel_mm_s2;    /* S 曲线规划后的右轮目标加速度。 */
+    float curve_speed_limit_mm_s; /* 曲率/横向加速度给出的速度上限。 */
+    float target_yaw_rate_dps;  /* 差速目标对应的车体偏航角速度。 */
     uint32_t lost_ms;           /* 连续丢线时间，单位 ms。 */
+    bool planner_limited;       /* 本周期受曲率或角速度约束。 */
 } line_track_output_t;
 
 /** 与硬件无关的循迹算法输入，便于主机单测和跨平台移植。 */

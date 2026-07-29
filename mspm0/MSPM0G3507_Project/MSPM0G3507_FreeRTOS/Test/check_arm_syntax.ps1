@@ -10,7 +10,7 @@ if (-not $gcc) { throw 'arm-none-eabi-gcc was not found.' }
 $includeDirs = @(
     $sdk,
     (Join-Path $sdk 'third_party\CMSIS\Core\Include'),
-    'Application', 'Application\Task', 'Application\Algorithm',
+    'Application', 'Application\Task', 'Application\test', 'Application\Algorithm',
     'Application\Algorithm\Filter', 'BSP', 'BSP\Peripherals', 'BSP\Input',
     'BSP\IMU', 'BSP\IMU\Ports\mspm0g3507', 'Config', 'Lib\OSAL',
     'Lib\AxiomTrace', 'Lib\Math', 'Lib\FreeRTOS\include',
@@ -19,10 +19,12 @@ $includeDirs = @(
 ) | ForEach-Object { if ([IO.Path]::IsPathRooted($_)) { '-I' + $_ } else { '-I' + (Join-Path $root $_) } }
 $sources = @(
     'Application\Algorithm\app_line_follower.c',
+    'Application\Algorithm\app_imu_kinematics.c',
     'Application\app_line_track.c',
     'Application\app_balance_link.c',
     'Application\app_main.c',
-    'Application\Task\task_control.c'
+    'Application\Task\task_control.c',
+    'Application\Task\task_imu.c'
 ) | ForEach-Object { Join-Path $root $_ }
 & $gcc -mcpu=cortex-m0plus -mthumb -std=c11 -fsyntax-only `
     -D__MSPM0G3507__ -DLOG_LEVEL=3 -DPRJ_LINE_TRACK_ENABLE=1 `

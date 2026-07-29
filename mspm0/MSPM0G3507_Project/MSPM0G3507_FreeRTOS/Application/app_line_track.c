@@ -56,8 +56,13 @@ static void map_output(const uint8_t raw[BSP_IR_CHANNEL_COUNT],
     out->turn90_active = false;
     out->line_error = core->line_error;
     out->steering_mm_s = core->steering_mm_s;
+    out->left_accel_mm_s2 = core->left_accel_mm_s2;
+    out->right_accel_mm_s2 = core->right_accel_mm_s2;
+    out->curve_speed_limit_mm_s = core->curve_speed_limit_mm_s;
+    out->target_yaw_rate_dps = core->target_yaw_rate_dps;
     out->lost_ms = core->lost_ms;
     out->sensor_bits = core->sensor_bits;
+    out->planner_limited = core->planner_limited;
 }
 
 void app_line_track_init(void)
@@ -136,8 +141,12 @@ bool app_line_track_update_sample(const line_track_input_t *input,
 
 bool app_line_track_set_profile(app_line_profile_t profile)
 {
+    app_line_follower_cfg_t cfg;
     s_command_scale = LINE_TRACK_COMMAND_SCALE;
-    return app_line_follower_set_profile(&s_follower, profile);
+    if (!app_line_follower_set_profile(&s_follower, profile)) { return false; }
+    cfg = s_follower.cfg;
+    cfg.track_width_mm = PRJ_CF_WHEEL_BASE_M * 1000.0f;
+    return app_line_follower_configure(&s_follower, &cfg);
 }
 
 bool app_line_track_configure(const app_line_follower_cfg_t *cfg,

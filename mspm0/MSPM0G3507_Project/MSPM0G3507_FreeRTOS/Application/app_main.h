@@ -40,12 +40,14 @@ typedef struct {
     float roll;              /**< 横滚角(度) */
     float pitch;             /**< 俯仰角(度) */
     float yaw;               /**< 偏航角(度) */
-    float accel_x_g;         /**< X轴加速度(g) */
-    float accel_y_g;         /**< Y轴加速度(g) */
-    float accel_z_g;         /**< Z轴加速度(g) */
-    float gyro_x_dps;        /**< X轴角速度(°/s) */
-    float gyro_y_dps;        /**< Y轴角速度(°/s) */
-    float gyro_z_dps;        /**< Z轴角速度(°/s) */
+    float accel_x_g;         /**< 车体旋转中心 X 轴加速度(g) */
+    float accel_y_g;         /**< 车体旋转中心 Y 轴加速度(g) */
+    float accel_z_g;         /**< 车体旋转中心 Z 轴加速度(g) */
+    float gyro_x_dps;        /**< 车体 X 轴角速度(°/s) */
+    float gyro_y_dps;        /**< 车体 Y 轴角速度(°/s) */
+    float gyro_z_dps;        /**< 车体 Z 轴角速度(°/s) */
+    float yaw_accel_rad_s2;  /**< 杆臂补偿使用的滤波偏航角加速度 */
+    float lever_accel_x_g;   /**< IMU 偏心导致的纵向补偿量(g) */
     float temperature;       /**< 温度(°C) */
     uint32_t timestamp_ms;   /**< 时间戳(ms) */
 } app_imu_data_t;

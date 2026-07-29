@@ -1242,6 +1242,29 @@ extern "C" {
 /** 轮距(m, 左右轮接地点中心距离)，应按实车标定。 */
 #define PRJ_CF_WHEEL_BASE_M          (0.19f)
 
+/* IMU rigid mounting calibration. Body frame: +X forward, +Y left, +Z up.
+ * R_BODY_FROM_SENSOR converts raw sensor vectors into that body frame.
+ * OFFSET is measured from the differential-drive rotation centre to the IMU.
+ * A translated gyro measures the same angular rate; the offset compensation is
+ * therefore applied only to acceleration (tangential + centripetal terms). */
+#define PRJ_IMU_R_BS_00              (1.0f)
+#define PRJ_IMU_R_BS_01              (0.0f)
+#define PRJ_IMU_R_BS_02              (0.0f)
+#define PRJ_IMU_R_BS_10              (0.0f)
+#define PRJ_IMU_R_BS_11              (1.0f)
+#define PRJ_IMU_R_BS_12              (0.0f)
+#define PRJ_IMU_R_BS_20              (0.0f)
+#define PRJ_IMU_R_BS_21              (0.0f)
+#define PRJ_IMU_R_BS_22              (1.0f)
+#define PRJ_IMU_GYRO_BIAS_X_DPS      (0.0f)
+#define PRJ_IMU_GYRO_BIAS_Y_DPS      (0.0f)
+#define PRJ_IMU_GYRO_BIAS_Z_DPS      (0.0f)
+#define PRJ_IMU_OFFSET_X_M           (0.0f)
+#define PRJ_IMU_OFFSET_Y_M           (0.0f)
+#define PRJ_IMU_OFFSET_Z_M           (0.0f)
+#define PRJ_IMU_YAW_ACCEL_ALPHA      (0.20f)
+#define PRJ_IMU_MAX_YAW_ACCEL_RAD_S2 (30.0f)
+
 /** 位置环PID参数(位置式PID, 输出RPM修正) */
 
 /** 位置环PID参数(位置式PID, 输出RPM修正) */

@@ -16,3 +16,13 @@ $output = Join-Path $env:TEMP 'axiomtrace_line_follower_test.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Line follower host test build failed.' }
 & $output
 if ($LASTEXITCODE -ne 0) { throw 'Line follower host tests failed.' }
+
+$imuOutput = Join-Path $env:TEMP 'axiomtrace_imu_kinematics_test.exe'
+& $gcc -std=c11 -Wall -Wextra -Werror `
+    "-I$(Join-Path $root 'Application\Algorithm')" `
+    (Join-Path $root 'Application\Algorithm\app_imu_kinematics.c') `
+    (Join-Path $PSScriptRoot 'test_imu_kinematics_host.c') `
+    -o $imuOutput
+if ($LASTEXITCODE -ne 0) { throw 'IMU kinematics host test build failed.' }
+& $imuOutput
+if ($LASTEXITCODE -ne 0) { throw 'IMU kinematics host tests failed.' }
