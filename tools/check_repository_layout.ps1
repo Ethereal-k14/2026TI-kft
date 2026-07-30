@@ -14,7 +14,9 @@ $required = @(
     'mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\project_config.h',
     'stm32f4\balance_control\balance_control.ioc',
     'stm32f4\balance_control\User\user_runtime.c',
-    'stm32f4\balance_control\User\Config\user_config.h'
+    'stm32f4\balance_control\User\Config\user_config.h',
+    'stm32f4\balance_control\User\App\Inc\app_safety_policy.h',
+    'stm32f4\balance_control\User\App\Src\app_safety_policy.c'
 )
 foreach ($relative in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $root $relative))) {
@@ -73,6 +75,7 @@ $checks = @(
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Application\app_balance_link.c', '#define LINK_MSG_IMU (0x12U)'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\project_config.h', '#define PRJ_BALANCE_LINK_WATCHDOG_MS   (250U)'),
     @('stm32f4\balance_control\User\Config\user_config.h', '#define USER_CHASSIS_START_ACK_TIMEOUT_MS (300U)'),
+    @('stm32f4\balance_control\User\App\Src\app_safety_policy.c', 'case SAFETY_EVENT_START_ACK_FAILED:'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\empty.syscfg', 'UART2.targetBaudRate                   = 115200;'),
     @('stm32f4\balance_control\balance_control.ioc', 'Mcu.Package=LQFP100')
 )

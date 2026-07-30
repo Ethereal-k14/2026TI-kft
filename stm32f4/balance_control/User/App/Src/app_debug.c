@@ -80,4 +80,12 @@ void App_Debug_UpdateDisplay(void)
     (void)snprintf(line, sizeof(line), "MAX:%4ldus",
                    (long)App_Scheduler_GetMaxLoopUs());
     BSP_OledSpi_DrawString(0U, 4U, line);
+
+    /* 第 5/6 页：可恢复告警与锁存硬故障分开显示。 */
+    (void)snprintf(line, sizeof(line), "WARN:%04lX",
+                   (unsigned long)App_Safety_GetWarningMask());
+    BSP_OledSpi_DrawString(0U, 5U, line);
+    (void)snprintf(line, sizeof(line), "FAULT:%04lX",
+                   (unsigned long)App_Safety_GetFaultMask());
+    BSP_OledSpi_DrawString(0U, 6U, line);
 }
