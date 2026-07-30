@@ -14,9 +14,7 @@ $required = @(
     'mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\project_config.h',
     'stm32f4\balance_control\balance_control.ioc',
     'stm32f4\balance_control\User\user_runtime.c',
-    'stm32f4\balance_control\User\Config\user_config.h',
-    'stm32f4\balance_control\User\App\Inc\app_safety_policy.h',
-    'stm32f4\balance_control\User\App\Src\app_safety_policy.c'
+    'stm32f4\balance_control\User\Config\user_config.h'
 )
 foreach ($relative in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $root $relative))) {
@@ -74,8 +72,9 @@ $checks = @(
     @('stm32f4\balance_control\User\Protocol\Inc\app_protocol.h', 'MSG_VISION_POSE       = 0x20U'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Application\app_balance_link.c', '#define LINK_MSG_IMU (0x12U)'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\project_config.h', '#define PRJ_BALANCE_LINK_WATCHDOG_MS   (250U)'),
+    @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\main.c', 'bsp_motor_power_disable();'),
     @('stm32f4\balance_control\User\Config\user_config.h', '#define USER_CHASSIS_START_ACK_TIMEOUT_MS (300U)'),
-    @('stm32f4\balance_control\User\App\Src\app_safety_policy.c', 'case SAFETY_EVENT_START_ACK_FAILED:'),
+    @('stm32f4\balance_control\User\App\Src\app_safety.c', 'App_Safety_ControlledStop(SAFETY_WARN_SENSOR_FEEDBACK);'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\empty.syscfg', 'UART2.targetBaudRate                   = 115200;'),
     @('stm32f4\balance_control\balance_control.ioc', 'Mcu.Package=LQFP100')
 )

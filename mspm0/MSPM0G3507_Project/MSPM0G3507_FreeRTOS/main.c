@@ -17,6 +17,7 @@
 #include "ti_msp_dl_config.h"
 #include "app_main.h"
 #include "bsp_timer.h"
+#include "bsp_motor.h"
 #include <stdio.h>
 
 /* ======================== main入口 ======================== */
@@ -29,6 +30,7 @@ int main(void)
     /* 第2步: 应用层初始化(BSP模块+PID控制器+FreeRTOS任务) */
     int32_t app_init_ret = app_main_init();
     if (app_init_ret != 0) {
+        bsp_motor_power_disable();
         /* UART0 was initialized by app_main_init; report fatal errors. */
         printf("[FATAL] app_main_init failed: %ld\r\n", (long)app_init_ret);
         for (;;) {
@@ -39,6 +41,7 @@ int main(void)
     vTaskStartScheduler();
 
     /* 调度器启动失败(内存不足) */
+    bsp_motor_power_disable();
     for (;;) {
     }
 }
@@ -113,6 +116,7 @@ OSAL_WEAK void vApplicationStackOverflowHook(
 {
     (void)pxTask;
     (void)pcTaskName;
+    bsp_motor_power_disable();
     app_runtime_diag_record_fault(APP_RUNTIME_FAULT_STACK_OVERFLOW);
     for (;;) {
     }
@@ -128,6 +132,7 @@ OSAL_WEAK void vApplicationStackOverflowHook(
  */
 void vApplicationMallocFailedHook(void)
 {
+    bsp_motor_power_disable();
     app_runtime_diag_record_fault(APP_RUNTIME_FAULT_MALLOC_FAILED);
     for (;;) {
     }

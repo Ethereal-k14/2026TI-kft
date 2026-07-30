@@ -131,8 +131,8 @@ void App_Scheduler_Run(void)
                     s_ctx.chassis_start_pending = true;
                     s_ctx.chassis_start_ms = HAL_GetTick();
                 } else {
-                    App_Safety_HandleEvent(SAFETY_EVENT_START_ACK_FAILED,
-                        SAFETY_WARN_CHASSIS_LINK | SAFETY_WARN_START_ACK);
+                    App_Safety_ControlledStop(SAFETY_WARN_CHASSIS |
+                                              SAFETY_WARN_START_ACK);
                 }
             }
         }
@@ -162,8 +162,7 @@ void App_Scheduler_Run(void)
             } else if ((HAL_GetTick() - s_ctx.chassis_start_ms) >=
                        USER_CHASSIS_START_ACK_TIMEOUT_MS) {
                 s_ctx.chassis_start_pending = false;
-                App_Safety_HandleEvent(SAFETY_EVENT_START_ACK_FAILED,
-                                       SAFETY_WARN_START_ACK);
+                App_Safety_ControlledStop(SAFETY_WARN_START_ACK);
             }
         }
         if (!App_Safety_IsRunning()) {

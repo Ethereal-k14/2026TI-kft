@@ -652,11 +652,6 @@
               <FilePath>../User/App/Src/app_safety.c</FilePath>
             </File>
             <File>
-              <FileName>app_safety_policy.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>../User/App/Src/app_safety_policy.c</FilePath>
-            </File>
-            <File>
               <FileName>app_scheduler.c</FileName>
               <FileType>1</FileType>
               <FilePath>../User/App/Src/app_scheduler.c</FilePath>
