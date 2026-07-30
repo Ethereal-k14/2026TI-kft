@@ -22,6 +22,7 @@ typedef struct
     safety_cfg_t    cfg;
     safety_state_t  state;
     uint32_t        fault_mask;
+    uint32_t        warning_mask;
     uint32_t        mismatch_start_ms; /* 传感器不一致开始时间 */
     bool            mismatch_active;
     uint32_t        encoder_invalid_start_ms;
@@ -73,7 +74,7 @@ void App_Safety_Init(const safety_cfg_t *cfg)
         s_ctx.cfg.sensor_mismatch_threshold_mrad = 100;  /* 100 mrad ≈ 5.7° */
         s_ctx.cfg.sensor_mismatch_persist_ms     = 200U; /* 200 ms 持续超限 */
         s_ctx.cfg.encoder_invalid_persist_ms     = 100U;
-        s_ctx.cfg.vision_invalid_persist_ms      = 120U;
+        s_ctx.cfg.vision_invalid_persist_ms      = 400U;
         s_ctx.cfg.encoder_mrad_per_count         = 1.570796f;
         s_ctx.cfg.vision_required                = true;
     }
@@ -140,18 +141,31 @@ void App_Safety_Check(void)
                     uint32_t elapsed = HAL_GetTick() - s_ctx.mismatch_start_ms;
                     if (elapsed > s_ctx.cfg.sensor_mismatch_persist_ms)
                     {
-                        App_Safety_EmergencyStop(FAULT_SENSOR_MISMATCH);
-                        return;
+                        s_ctx.warning_mask |= SAFETY_WARN_SENSOR_MISMATCH;
                     }
                 }
             }
             else
             {
                 s_ctx.mismatch_active = false;
+                s_ctx.warning_mask &= ~SAFETY_WARN_SENSOR_MISMATCH;
             }
         }
+        else
+        {
+            /* No comparable pair: a previous mismatch is no longer active. */
+            s_ctx.mismatch_active = false;
+            s_ctx.warning_mask &= ~SAFETY_WARN_SENSOR_MISMATCH;
+        }
 
-        if (!(enc.index_valid || enc.pwm_valid))
+        const bool encoder_valid = enc.index_valid || enc.pwm_valid;
+        const bool adc_fallback_valid = adc.valid && BSP_Adc_IsCalibrated();
+        if (!encoder_valid && adc_fallback_valid)
+        {
+            s_ctx.encoder_invalid_active = false;
+            s_ctx.warning_mask |= SAFETY_WARN_ANGLE_FALLBACK;
+        }
+        else if (!encoder_valid)
         {
             if (!s_ctx.encoder_invalid_active)
             {
@@ -168,6 +182,7 @@ void App_Safety_Check(void)
         else
         {
             s_ctx.encoder_invalid_active = false;
+            s_ctx.warning_mask &= ~SAFETY_WARN_ANGLE_FALLBACK;
         }
 
         if (s_ctx.cfg.vision_required)
@@ -176,6 +191,7 @@ void App_Safety_Check(void)
             App_Estimator_GetState(&est);
             if (!est.valid)
             {
+                s_ctx.warning_mask |= SAFETY_WARN_VISION_PREDICT;
                 if (!s_ctx.vision_invalid_active)
                 {
                     s_ctx.vision_invalid_active = true;
@@ -191,16 +207,16 @@ void App_Safety_Check(void)
             else
             {
                 s_ctx.vision_invalid_active = false;
+                s_ctx.warning_mask &= ~SAFETY_WARN_VISION_PREDICT;
             }
         }
 
-        /* IMU 丢帧已在 App_Chassis 内将可选前馈平滑归零。 */
-        if (s_ctx.chassis_required)
-        {
-            if (!App_Chassis_IsHealthy()) {
-                App_Safety_EmergencyStop(FAULT_CHASSIS);
-                return;
-            }
+        /* 链路不是本地闭环的必需条件：底盘自主循迹，
+           上层在 IMU 陈旧时已将前馈平滑归零。 */
+        if (s_ctx.chassis_required && !App_Chassis_IsHealthy()) {
+            s_ctx.warning_mask |= SAFETY_WARN_CHASSIS;
+        } else {
+            s_ctx.warning_mask &= ~SAFETY_WARN_CHASSIS;
         }
     }
 }
@@ -224,6 +240,7 @@ bool App_Safety_RequestStart(void)
     {
         return false;
     }
+    s_ctx.warning_mask = 0U;
     /* Chassis IMU is feedforward-only; its timeout must not block static
        camera/encoder feedback control. All physical/feedback faults do. */
     if (s_ctx.fault_mask != 0U)
@@ -233,25 +250,26 @@ bool App_Safety_RequestStart(void)
     BSP_Encoder_GetState(&enc);
     App_Estimator_GetState(&est);
     BSP_Adc_GetSample(&adc);
-    if (!(enc.index_valid || enc.pwm_valid)) {
-        App_Safety_EmergencyStop(FAULT_ENCODER_INVALID);
+    if (!(enc.index_valid || enc.pwm_valid) &&
+        !(adc.valid && BSP_Adc_IsCalibrated())) {
+        s_ctx.warning_mask |= SAFETY_WARN_ANGLE_FALLBACK;
         return false;
     }
     if (s_ctx.cfg.vision_required && !est.valid) {
-        App_Safety_EmergencyStop(FAULT_VISION_LOST);
+        s_ctx.warning_mask |= SAFETY_WARN_VISION_PREDICT;
         return false;
     }
     if (s_ctx.chassis_required && !App_Chassis_IsHealthy()) {
-        App_Safety_EmergencyStop(FAULT_CHASSIS);
-        return false;
+        s_ctx.warning_mask |= SAFETY_WARN_CHASSIS;
     }
-    if (adc.valid && BSP_Adc_IsCalibrated()) {
+    if ((enc.index_valid || enc.pwm_valid) &&
+        adc.valid && BSP_Adc_IsCalibrated()) {
         const int32_t encoder_mrad = (int32_t)(
             (float)enc.position_count * s_ctx.cfg.encoder_mrad_per_count);
         int32_t diff = adc.value - encoder_mrad;
         if (diff < 0) { diff = -diff; }
         if (diff > s_ctx.cfg.sensor_mismatch_threshold_mrad) {
-            App_Safety_EmergencyStop(FAULT_SENSOR_MISMATCH);
+            s_ctx.warning_mask |= SAFETY_WARN_SENSOR_MISMATCH;
             return false;
         }
     }
@@ -277,6 +295,20 @@ safety_state_t App_Safety_GetState(void)
 uint32_t App_Safety_GetFaultMask(void)
 {
     return s_ctx.fault_mask;
+}
+
+void App_Safety_SetWarning(uint32_t warning_mask, bool active)
+{
+    if (active) {
+        s_ctx.warning_mask |= warning_mask;
+    } else {
+        s_ctx.warning_mask &= ~warning_mask;
+    }
+}
+
+uint32_t App_Safety_GetWarningMask(void)
+{
+    return s_ctx.warning_mask;
 }
 
 bool App_Safety_IsRunning(void)

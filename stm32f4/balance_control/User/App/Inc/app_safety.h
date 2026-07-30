@@ -2,13 +2,15 @@
  * @file    app_safety.h
  * @brief   安全状态机接口（规范 §2、§5、§8）
  *
- *  状态机：IDLE → RUNNING → FAULT。FAULT 不可软件恢复，必须断电重启。
+ *  状态机：IDLE → RUNNING → FAULT。可救异常保持 RUNNING 并降级；
+ *  只有已无可用闭环或机械危险才进入 FAULT，且 FAULT 必须断电重启。
  *
  *  触发源：
  *  - 限位开关触发（双边沿，断线 = 触发）
  *  - TMC2209 DIAG 上升沿
- *  - 短干扰由视觉预测和持续时间过滤，不进入 FAULT
- *  - 持续反馈丢失、底盘失联、启动失败、限位和 DIAG 均锁存 FAULT
+ *  - 视觉短时丢失：模型预测 -> 水平持杆 -> 恢复视觉闭环
+ *  - ABZ/PWM 丢失：已标定电位器接管角度内环
+ *  - 底盘链路/IMU 丢失：底盘继续自主循迹，STM32 前馈平滑归零
  */
 #ifndef APP_SAFETY_H
 #define APP_SAFETY_H
@@ -35,11 +37,14 @@ typedef enum
 #define FAULT_LIMIT_MIN       (1U << 0U)
 #define FAULT_LIMIT_MAX       (1U << 1U)
 #define FAULT_DIAG            (1U << 2U)
-#define FAULT_SENSOR_MISMATCH (1U << 3U)
 #define FAULT_VISION_LOST     (1U << 4U)
 #define FAULT_ENCODER_INVALID (1U << 5U)
-#define FAULT_CHASSIS         (1U << 6U)
-#define FAULT_START_FAILED    (1U << 7U)
+
+#define SAFETY_WARN_CHASSIS          (1U << 0U)
+#define SAFETY_WARN_START_ACK        (1U << 1U)
+#define SAFETY_WARN_VISION_PREDICT   (1U << 2U)
+#define SAFETY_WARN_ANGLE_FALLBACK   (1U << 3U)
+#define SAFETY_WARN_SENSOR_MISMATCH  (1U << 4U)
 
 /* -------------------------------------------------------------------------
  * 配置
@@ -80,6 +85,11 @@ safety_state_t App_Safety_GetState(void);
 
 /** @brief 读取当前故障位掩码 */
 uint32_t App_Safety_GetFaultMask(void);
+
+/** @brief 设置/清除可救降级标志，不改变安全状态。 */
+void App_Safety_SetWarning(uint32_t warning_mask, bool active);
+
+uint32_t App_Safety_GetWarningMask(void);
 
 /** @brief 系统是否正在运行（RUNNING 状态） */
 bool App_Safety_IsRunning(void);

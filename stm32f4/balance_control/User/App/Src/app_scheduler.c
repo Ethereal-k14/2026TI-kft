@@ -45,6 +45,7 @@ typedef struct
     uint16_t max_pending_ticks;
     bool chassis_start_pending;
     uint32_t chassis_start_ms;
+    uint8_t chassis_start_retries;
 } sched_ctx_t;
 
 static sched_ctx_t s_ctx;
@@ -127,12 +128,11 @@ void App_Scheduler_Run(void)
                 (void)App_Identification_Start();
             } else {
                 App_Controller_SetTargetPos(0);
-                if (App_Chassis_SendCmd(CHASSIS_CMD_START, 0U) == BSP_OK) {
-                    s_ctx.chassis_start_pending = true;
-                    s_ctx.chassis_start_ms = HAL_GetTick();
-                } else {
-                    App_Safety_EmergencyStop(FAULT_START_FAILED);
-                }
+                s_ctx.chassis_start_pending = true;
+                s_ctx.chassis_start_ms = HAL_GetTick();
+                s_ctx.chassis_start_retries = 0U;
+                App_Safety_SetWarning(SAFETY_WARN_START_ACK,
+                    App_Chassis_SendCmd(CHASSIS_CMD_START, 0U) != BSP_OK);
             }
         }
     }
@@ -158,10 +158,21 @@ void App_Scheduler_Run(void)
         if (s_ctx.chassis_start_pending) {
             if (App_Chassis_IsRunningConfirmed()) {
                 s_ctx.chassis_start_pending = false;
+                App_Safety_SetWarning(SAFETY_WARN_START_ACK, false);
             } else if ((HAL_GetTick() - s_ctx.chassis_start_ms) >=
                        USER_CHASSIS_START_ACK_TIMEOUT_MS) {
-                s_ctx.chassis_start_pending = false;
-                App_Safety_EmergencyStop(FAULT_START_FAILED);
+                App_Safety_SetWarning(SAFETY_WARN_START_ACK, true);
+                if (s_ctx.chassis_start_retries <
+                    USER_CHASSIS_START_MAX_RETRIES) {
+                    s_ctx.chassis_start_retries++;
+                    s_ctx.chassis_start_ms = HAL_GetTick();
+                    (void)App_Chassis_SendCmd(CHASSIS_CMD_START,
+                                              s_ctx.chassis_start_retries);
+                } else {
+                    /* ACK 丢失不等于底盘未运行；上层继续稳球，
+                       不再重复 START 以免底盘重置单圈计时。 */
+                    s_ctx.chassis_start_pending = false;
+                }
             }
         }
         if (!App_Safety_IsRunning()) {

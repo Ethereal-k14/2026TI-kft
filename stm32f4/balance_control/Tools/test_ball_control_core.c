@@ -10,6 +10,7 @@ int main(void)
     ball_ctrl_inner_input_t inner = {0.0f, 0.0f, 0.0f, 0.0f, 0.002f, true};
     ball_ctrl_core_output_t out;
     ball_ctrl_core_cfg_t bad = {0};
+    float angle_before_dropout;
 
     BallCtrlCore_Init(&ctx, NULL);
     assert(ctx.initialized);
@@ -30,10 +31,17 @@ int main(void)
     assert(out.signed_step_freq_hz > 0.0f);
     assert(fabsf(out.signed_step_freq_hz) <= ctx.cfg.max_step_freq_hz);
 
+    angle_before_dropout = fabsf(out.target_angle_mrad);
     outer.valid = false;
     assert(!BallCtrlCore_StepOuter(&ctx, &outer));
     BallCtrlCore_GetOutput(&ctx, &out);
     assert(!out.measurement_valid);
+    assert(fabsf(out.target_angle_mrad) <= angle_before_dropout);
+
+    outer.valid = true;
+    assert(BallCtrlCore_StepOuter(&ctx, &outer));
+    BallCtrlCore_GetOutput(&ctx, &out);
+    assert(out.measurement_valid);
 
     inner.enabled = false;
     assert(!BallCtrlCore_StepInner(&ctx, &inner));

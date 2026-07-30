@@ -46,7 +46,7 @@ static bool cfg_valid(const estimator_cfg_t *c)
 static estimator_cfg_t default_cfg(void)
 {
     estimator_cfg_t c = {
-        0.65f, 0.18f, 40000, 800000, 80000U,
+        0.65f, 0.18f, 40000, 800000, 200000U,
         false, false, 1000.0f, 0, 0.15f, 1.570796f
     };
     return c;

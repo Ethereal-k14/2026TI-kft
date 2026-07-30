@@ -5,6 +5,7 @@
 #include "app_controller.h"
 #include "app_estimator.h"
 #include "app_chassis.h"
+#include "bsp_adc.h"
 #include "bsp_encoder.h"
 #include "bsp_stepper.h"
 #include <math.h>
@@ -16,6 +17,9 @@ typedef struct {
     ball_ctrl_core_t core;
     ctrl_output_t output;
     ctrl_target_owner_t target_owner;
+    float fallback_last_angle_mrad;
+    float fallback_rate_mrad_s;
+    bool fallback_initialized;
     bool initialized;
 } ctrl_ctx_t;
 
@@ -74,19 +78,44 @@ bool App_Controller_SetProfile(ball_ctrl_profile_t profile)
 void App_Controller_InnerLoop(void)
 {
     encoder_state_t enc;
+    sensor_sample_t adc;
     chassis_imu_t imu;
     ball_ctrl_inner_input_t in;
     ball_ctrl_core_output_t core;
     uint32_t freq;
     if (!s_ctx.initialized) { return; }
     BSP_Encoder_GetState(&enc);
+    BSP_Adc_GetSample(&adc);
     App_Chassis_GetImu(&imu);
-    in.angle_mrad = (float)enc.position_count * s_ctx.cfg.mrad_per_count;
-    in.rate_mrad_s = (float)enc.velocity_count_s * s_ctx.cfg.mrad_per_count;
+    if (enc.index_valid || enc.pwm_valid) {
+        in.angle_mrad = (float)enc.position_count * s_ctx.cfg.mrad_per_count;
+        in.rate_mrad_s = (float)enc.velocity_count_s * s_ctx.cfg.mrad_per_count;
+        s_ctx.fallback_last_angle_mrad = in.angle_mrad;
+        s_ctx.fallback_rate_mrad_s = in.rate_mrad_s;
+        s_ctx.fallback_initialized = true;
+        in.enabled = true;
+    } else if (adc.valid && BSP_Adc_IsCalibrated()) {
+        in.angle_mrad = (float)adc.value;
+        if (s_ctx.fallback_initialized) {
+            const float raw_rate = (in.angle_mrad -
+                s_ctx.fallback_last_angle_mrad) / 0.002f;
+            s_ctx.fallback_rate_mrad_s += 0.2f *
+                (raw_rate - s_ctx.fallback_rate_mrad_s);
+        } else {
+            s_ctx.fallback_rate_mrad_s = 0.0f;
+            s_ctx.fallback_initialized = true;
+        }
+        s_ctx.fallback_last_angle_mrad = in.angle_mrad;
+        in.rate_mrad_s = s_ctx.fallback_rate_mrad_s;
+        in.enabled = true;
+    } else {
+        in.angle_mrad = 0.0f;
+        in.rate_mrad_s = 0.0f;
+        in.enabled = false;
+    }
     in.chassis_accel_mm_s2 = imu.valid ? (float)imu.ax_mm_s2 : 0.0f;
     in.chassis_ff_weight = imu.valid ? imu.feedfwd_weight : 0.0f;
     in.dt_s = 0.002f;
-    in.enabled = enc.index_valid || enc.pwm_valid;
     (void)BallCtrlCore_StepInner(&s_ctx.core, &in);
     BallCtrlCore_GetOutput(&s_ctx.core, &core);
     if (!in.enabled) {
@@ -127,6 +156,9 @@ void App_Controller_Reset(void)
     BallCtrlCore_Reset(&s_ctx.core, (float)est.pos_um * 0.001f);
     BSP_Stepper_SetFreq(0U);
     (void)memset(&s_ctx.output, 0, sizeof(s_ctx.output));
+    s_ctx.fallback_last_angle_mrad = 0.0f;
+    s_ctx.fallback_rate_mrad_s = 0.0f;
+    s_ctx.fallback_initialized = false;
     s_ctx.target_owner = CTRL_TARGET_OWNER_OPERATOR;
     BallCtrlCore_SetTarget(&s_ctx.core, 0.0f);
 }

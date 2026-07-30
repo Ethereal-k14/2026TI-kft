@@ -106,6 +106,9 @@ static void handle_frame(const uint8_t *frame, uint16_t len)
         return;
     }
     s_link.last_rx_ms = osal_ticks_to_ms(osal_get_tick_count());
+    if (s_link.remote_session) {
+        s_link.watchdog_timeout = false;
+    }
     if ((frame[3] == LINK_MSG_CMD) && (payload_len >= 2U)) {
         s_link.last_cmd_seq = (uint16_t)frame[6] | ((uint16_t)frame[7] << 8U);
         switch (frame[12]) {
@@ -195,9 +198,9 @@ static void balance_link_task(void *arg)
         while (proto_uart1_a_getc(&byte) == BSP_OK) { feed_byte(byte); }
         if (s_link.remote_session && (s_link.last_rx_ms != 0U) &&
             ((now - s_link.last_rx_ms) > PRJ_BALANCE_LINK_WATCHDOG_MS)) {
-            s_link.remote_session = false;
             s_link.watchdog_timeout = true;
-            stop_chassis(false);
+            /* 串口链路不参与底盘本地循迹闭环。失联时继续完成
+               当前单圈，仍由红外丢线和最大运行时间保护。 */
         }
         if ((now - last_imu) >= 20U) { last_imu = now; send_imu(); }
         if ((now - last_status) >= 100U) {

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 $required = @(
@@ -74,9 +74,10 @@ $checks = @(
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\project_config.h', '#define PRJ_BALANCE_LINK_WATCHDOG_MS   (250U)'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\main.c', 'bsp_motor_power_disable();'),
     @('stm32f4\balance_control\User\Config\user_config.h', '#define USER_CHASSIS_START_ACK_TIMEOUT_MS (300U)'),
-    @('stm32f4\balance_control\User\App\Src\app_safety.c', 'App_Safety_EmergencyStop(FAULT_SENSOR_MISMATCH);'),
-    @('stm32f4\balance_control\User\App\Src\app_safety.c', 'App_Safety_EmergencyStop(FAULT_CHASSIS);'),
-    @('stm32f4\balance_control\User\App\Src\app_scheduler.c', 'App_Safety_EmergencyStop(FAULT_START_FAILED);'),
+    @('stm32f4\balance_control\User\Config\user_config.h', '#define USER_CHASSIS_START_MAX_RETRIES    (3U)'),
+    @('stm32f4\balance_control\User\App\Src\app_safety.c', 's_ctx.warning_mask |= SAFETY_WARN_SENSOR_MISMATCH;'),
+    @('stm32f4\balance_control\User\App\Src\app_controller.c', 'adc.valid && BSP_Adc_IsCalibrated()'),
+    @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Application\app_balance_link.c', 's_link.watchdog_timeout = true;'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\empty.syscfg', 'UART2.targetBaudRate                   = 115200;'),
     @('stm32f4\balance_control\balance_control.ioc', 'Mcu.Package=LQFP100')
 )
@@ -90,10 +91,9 @@ foreach ($check in $checks) {
 $safetyHeader = Get-Content -Raw -LiteralPath (Join-Path $root `
     'stm32f4\balance_control\User\App\Inc\app_safety.h')
 foreach ($removedRecoveryApi in @('App_Safety_ClearFault',
-                                   'App_Safety_ControlledStop',
-                                   'App_Safety_GetWarningMask')) {
+                                   'App_Safety_ControlledStop')) {
     if ($safetyHeader.Contains($removedRecoveryApi)) {
-        throw "Power-cycle-only safety contract drift: $removedRecoveryApi"
+        throw "Post-fault recovery contract drift: $removedRecoveryApi"
     }
 }
 
