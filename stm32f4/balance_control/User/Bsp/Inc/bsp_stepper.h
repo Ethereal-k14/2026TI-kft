@@ -96,11 +96,6 @@ void BSP_Stepper_DiagIsr(void);
  */
 void BSP_Stepper_GetState(stepper_state_t *out);
 
-/**
- * @brief 清除 DIAG 故障标志（需外部安全逻辑确认后调用）
- */
-void BSP_Stepper_ClearFault(void);
-
 #ifdef __cplusplus
 }
 #endif

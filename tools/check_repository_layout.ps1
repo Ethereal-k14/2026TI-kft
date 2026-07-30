@@ -74,7 +74,9 @@ $checks = @(
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\project_config.h', '#define PRJ_BALANCE_LINK_WATCHDOG_MS   (250U)'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\main.c', 'bsp_motor_power_disable();'),
     @('stm32f4\balance_control\User\Config\user_config.h', '#define USER_CHASSIS_START_ACK_TIMEOUT_MS (300U)'),
-    @('stm32f4\balance_control\User\App\Src\app_safety.c', 'App_Safety_ControlledStop(SAFETY_WARN_SENSOR_FEEDBACK);'),
+    @('stm32f4\balance_control\User\App\Src\app_safety.c', 'App_Safety_EmergencyStop(FAULT_SENSOR_MISMATCH);'),
+    @('stm32f4\balance_control\User\App\Src\app_safety.c', 'App_Safety_EmergencyStop(FAULT_CHASSIS);'),
+    @('stm32f4\balance_control\User\App\Src\app_scheduler.c', 'App_Safety_EmergencyStop(FAULT_START_FAILED);'),
     @('mspm0\MSPM0G3507_Project\MSPM0G3507_FreeRTOS\Config\empty.syscfg', 'UART2.targetBaudRate                   = 115200;'),
     @('stm32f4\balance_control\balance_control.ioc', 'Mcu.Package=LQFP100')
 )
@@ -82,6 +84,16 @@ foreach ($check in $checks) {
     $content = Get-Content -Raw -LiteralPath (Join-Path $root $check[0])
     if (-not $content.Contains($check[1])) {
         throw "Interface contract drift in $($check[0]): expected '$($check[1])'"
+    }
+}
+
+$safetyHeader = Get-Content -Raw -LiteralPath (Join-Path $root `
+    'stm32f4\balance_control\User\App\Inc\app_safety.h')
+foreach ($removedRecoveryApi in @('App_Safety_ClearFault',
+                                   'App_Safety_ControlledStop',
+                                   'App_Safety_GetWarningMask')) {
+    if ($safetyHeader.Contains($removedRecoveryApi)) {
+        throw "Power-cycle-only safety contract drift: $removedRecoveryApi"
     }
 }
 

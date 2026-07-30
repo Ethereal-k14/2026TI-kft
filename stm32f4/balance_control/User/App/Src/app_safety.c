@@ -22,7 +22,6 @@ typedef struct
     safety_cfg_t    cfg;
     safety_state_t  state;
     uint32_t        fault_mask;
-    uint32_t        warning_mask;
     uint32_t        mismatch_start_ms; /* 传感器不一致开始时间 */
     bool            mismatch_active;
     uint32_t        encoder_invalid_start_ms;
@@ -30,7 +29,6 @@ typedef struct
     bool            encoder_invalid_active;
     bool            vision_invalid_active;
     bool            chassis_required;
-    bool            chassis_stop_sent;
 } safety_ctx_t;
 
 static safety_ctx_t s_ctx;
@@ -47,7 +45,7 @@ static void safety_do_estop(void)
     App_Estimator_Reset();
 }
 
-static void safety_do_controlled_stop(void)
+static void safety_do_normal_stop(void)
 {
     (void)App_Chassis_SendCmd(CHASSIS_CMD_STOP, 0U);
     BSP_Stepper_SetFreq(0U);
@@ -142,8 +140,7 @@ void App_Safety_Check(void)
                     uint32_t elapsed = HAL_GetTick() - s_ctx.mismatch_start_ms;
                     if (elapsed > s_ctx.cfg.sensor_mismatch_persist_ms)
                     {
-                        App_Safety_ControlledStop(
-                            SAFETY_WARN_SENSOR_FEEDBACK);
+                        App_Safety_EmergencyStop(FAULT_SENSOR_MISMATCH);
                         return;
                     }
                 }
@@ -164,7 +161,7 @@ void App_Safety_Check(void)
             else if ((HAL_GetTick() - s_ctx.encoder_invalid_start_ms) >=
                      s_ctx.cfg.encoder_invalid_persist_ms)
             {
-                App_Safety_ControlledStop(SAFETY_WARN_SENSOR_FEEDBACK);
+                App_Safety_EmergencyStop(FAULT_ENCODER_INVALID);
                 return;
             }
         }
@@ -187,7 +184,7 @@ void App_Safety_Check(void)
                 else if ((HAL_GetTick() - s_ctx.vision_invalid_start_ms) >=
                          s_ctx.cfg.vision_invalid_persist_ms)
                 {
-                    App_Safety_ControlledStop(SAFETY_WARN_VISION_LOST);
+                    App_Safety_EmergencyStop(FAULT_VISION_LOST);
                     return;
                 }
             }
@@ -197,30 +194,12 @@ void App_Safety_Check(void)
             }
         }
 
-        /* ---- 底盘降级：IMU 丢帧只撤销前馈 ---- */
-        chassis_imu_t imu;
-        App_Chassis_GetImu(&imu);
-        if (imu.comm_degraded)
-        {
-            s_ctx.warning_mask |= SAFETY_WARN_CHASSIS;
-        }
-        else
-        {
-            s_ctx.warning_mask &= ~SAFETY_WARN_CHASSIS;
-        }
-
+        /* IMU 丢帧已在 App_Chassis 内将可选前馈平滑归零。 */
         if (s_ctx.chassis_required)
         {
             if (!App_Chassis_IsHealthy()) {
-                /* 底盘端负责保护双轮。上层只补发一次 STOP，
-                   同时保持 RUNNING，让摆杆继续稳住静止平台上的球。 */
-                s_ctx.warning_mask |= SAFETY_WARN_CHASSIS;
-                if (!s_ctx.chassis_stop_sent) {
-                    s_ctx.chassis_stop_sent = true;
-                    (void)App_Chassis_SendCmd(CHASSIS_CMD_STOP, 0U);
-                }
-            } else {
-                s_ctx.chassis_stop_sent = false;
+                App_Safety_EmergencyStop(FAULT_CHASSIS);
+                return;
             }
         }
     }
@@ -255,15 +234,15 @@ bool App_Safety_RequestStart(void)
     App_Estimator_GetState(&est);
     BSP_Adc_GetSample(&adc);
     if (!(enc.index_valid || enc.pwm_valid)) {
-        s_ctx.warning_mask |= SAFETY_WARN_SENSOR_FEEDBACK;
+        App_Safety_EmergencyStop(FAULT_ENCODER_INVALID);
         return false;
     }
     if (s_ctx.cfg.vision_required && !est.valid) {
-        s_ctx.warning_mask |= SAFETY_WARN_VISION_LOST;
+        App_Safety_EmergencyStop(FAULT_VISION_LOST);
         return false;
     }
     if (s_ctx.chassis_required && !App_Chassis_IsHealthy()) {
-        s_ctx.warning_mask |= SAFETY_WARN_CHASSIS;
+        App_Safety_EmergencyStop(FAULT_CHASSIS);
         return false;
     }
     if (adc.valid && BSP_Adc_IsCalibrated()) {
@@ -272,13 +251,11 @@ bool App_Safety_RequestStart(void)
         int32_t diff = adc.value - encoder_mrad;
         if (diff < 0) { diff = -diff; }
         if (diff > s_ctx.cfg.sensor_mismatch_threshold_mrad) {
-            s_ctx.warning_mask |= SAFETY_WARN_SENSOR_FEEDBACK;
+            App_Safety_EmergencyStop(FAULT_SENSOR_MISMATCH);
             return false;
         }
     }
     s_ctx.state = SAFETY_STATE_RUNNING;
-    s_ctx.warning_mask = 0U;
-    s_ctx.chassis_stop_sent = false;
     /* 使能步进驱动 */
     BSP_Stepper_Enable(true);
     return true;
@@ -286,42 +263,9 @@ bool App_Safety_RequestStart(void)
 
 void App_Safety_RequestStop(void)
 {
-    App_Safety_ControlledStop(0U);
-}
-
-void App_Safety_ControlledStop(uint32_t warning_mask)
-{
-    s_ctx.warning_mask |= warning_mask;
     if (s_ctx.state == SAFETY_STATE_RUNNING) {
-        safety_do_controlled_stop();
+        safety_do_normal_stop();
         s_ctx.state = SAFETY_STATE_IDLE;
-    }
-}
-
-void App_Safety_ClearFault(void)
-{
-    if (s_ctx.state != SAFETY_STATE_FAULT)
-    {
-        return;
-    }
-    /* 仅当物理故障已解除（限位已恢复、DIAG 已清）时允许清除 */
-    key_limit_state_t ks;
-    BSP_Key_GetState(&ks);
-    stepper_state_t st;
-    BSP_Stepper_GetState(&st);
-
-    bool hw_clear = (!ks.limit_min_active) && (!ks.limit_max_active) && (!st.diag_fault);
-    if (hw_clear)
-    {
-        s_ctx.fault_mask = 0U;
-        s_ctx.warning_mask = 0U;
-        s_ctx.state      = SAFETY_STATE_IDLE;
-        BSP_Key_ClearLimitFlags();
-        BSP_Stepper_ClearFault();
-        s_ctx.mismatch_active = false;
-        s_ctx.encoder_invalid_active = false;
-        s_ctx.vision_invalid_active = false;
-        s_ctx.chassis_stop_sent = false;
     }
 }
 
@@ -333,11 +277,6 @@ safety_state_t App_Safety_GetState(void)
 uint32_t App_Safety_GetFaultMask(void)
 {
     return s_ctx.fault_mask;
-}
-
-uint32_t App_Safety_GetWarningMask(void)
-{
-    return s_ctx.warning_mask;
 }
 
 bool App_Safety_IsRunning(void)

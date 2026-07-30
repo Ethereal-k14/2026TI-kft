@@ -158,9 +158,3 @@ bool BSP_Key_ConsumeStartEvent(void)
     s_ctx.state.start_key_pressed = false;
     return evt;
 }
-
-void BSP_Key_ClearLimitFlags(void)
-{
-    s_ctx.state.limit_min_triggered = false;
-    s_ctx.state.limit_max_triggered = false;
-}

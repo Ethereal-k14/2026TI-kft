@@ -77,11 +77,6 @@ void BSP_Key_GetState(key_limit_state_t *out);
  */
 bool BSP_Key_ConsumeStartEvent(void);
 
-/**
- * @brief 清除限位触发记录（由安全层在恢复后调用）
- */
-void BSP_Key_ClearLimitFlags(void);
-
 #ifdef __cplusplus
 }
 #endif

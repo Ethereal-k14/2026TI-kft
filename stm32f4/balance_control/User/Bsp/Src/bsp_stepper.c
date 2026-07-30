@@ -204,8 +204,3 @@ void BSP_Stepper_GetState(stepper_state_t *out)
         *out = s_state;
     }
 }
-
-void BSP_Stepper_ClearFault(void)
-{
-    s_state.diag_fault = false;
-}
