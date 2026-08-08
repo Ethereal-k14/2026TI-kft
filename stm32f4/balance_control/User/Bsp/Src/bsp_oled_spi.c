@@ -34,7 +34,14 @@ static const uint8_t k_oled_init_cmds[] =
     0xDAU, 0x12U,   /* COM Pins Hardware Config */
     0xDBU, 0x20U,   /* VCOMH Deselect Level */
     0x8DU, 0x14U,   /* Charge Pump: Enable */
-    0xAFU           /* Display ON */
+    0xAFU,          /* Display ON */
+    /* ------------------------------------------------------------------
+     * 全屏地址范围：Horizontal Addressing Mode 下只需设置一次。
+     * Flush 时 DMA 写满 1024 B 后地址自动回绕，无需每帧重置。
+     * 将此移到 Init 以消除 BSP_OledSpi_Flush() 内的 6 次阻塞 SPI 调用。
+     * ------------------------------------------------------------------ */
+    0x21U, 0x00U, 0x7FU,   /* Column Address: 0–127 */
+    0x22U, 0x00U, 0x07U,   /* Page Address:   0–7   */
 };
 
 /* 5×7 ASCII 字体（仅包含可见 ASCII 0x20–0x7E） */
@@ -236,9 +243,8 @@ bsp_err_t BSP_OledSpi_Flush(void)
         return BSP_ERR_BUSY;
     }
 
-    /* 设置显示地址：全屏 Horizontal Addressing Mode */
-    oled_send_cmd(0x21U); oled_send_cmd(0x00U); oled_send_cmd(0x7FU); /* Column: 0–127 */
-    oled_send_cmd(0x22U); oled_send_cmd(0x00U); oled_send_cmd(0x07U); /* Page: 0–7 */
+    /* Column/Page 地址范围已在 Init 固定为全屏，此处直接启动 DMA 数据传输。
+     * 消除原有 6 次阻塞 SPI 命令调用，Flush 全程非阻塞。 */
 
     /* DMA 发送帧缓冲（数据模式） */
     HAL_GPIO_WritePin(OLED_SPI_CS_GPIO_Port, OLED_SPI_CS_Pin, GPIO_PIN_RESET);
@@ -255,10 +261,19 @@ bsp_err_t BSP_OledSpi_Flush(void)
     return BSP_OK;
 }
 
-void BSP_OledSpi_TxCpltCallback(void)
+/* -------------------------------------------------------------------------
+ * 私有：释放 SPI 总线（成功与错误路径共用）
+ * ---------------------------------------------------------------------- */
+static void release_bus(void)
 {
     HAL_GPIO_WritePin(OLED_SPI_CS_GPIO_Port, OLED_SPI_CS_Pin, GPIO_PIN_SET);
     s_dma_busy = false;
+}
+
+void BSP_OledSpi_TxCpltCallback(void)
+{
+    release_bus();
+    /* 传输成功：SSD1306 内部地址指针已回绕至 (0,0)，无需额外操作。 */
 }
 
 /* HAL 回调转发 */
@@ -267,5 +282,23 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
     if (hspi->Instance == SPI1)
     {
         BSP_OledSpi_TxCpltCallback();
+    }
+}
+
+/**
+ * @brief SPI DMA 错误恢复（覆盖 HAL weak 符号）
+ *
+ *  修复前：每帧 Flush 都重发地址命令，DMA 出错后下帧自动恢复位置。
+ *  修复后：地址命令移至 Init，DMA 中途出错时 SSD1306 地址指针停在中间，
+ *           需在此处主动重发全屏地址命令，否则下次 Flush 数据从错误位置写入。
+ */
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi->Instance == SPI1)
+    {
+        release_bus();
+        /* 重置 SSD1306 地址指针至全屏起点，恢复 Horizontal Addressing Mode 状态。 */
+        oled_send_cmd(0x21U); oled_send_cmd(0x00U); oled_send_cmd(0x7FU); /* Column 0-127 */
+        oled_send_cmd(0x22U); oled_send_cmd(0x00U); oled_send_cmd(0x07U); /* Page   0-7   */
     }
 }
